@@ -1,0 +1,179 @@
+@import "tailwindcss";
+
+/* Dezelfde taal als het keuzeplan: koel papier, grootboekgroen, cijfers in
+   mono zodat kolommen uitlijnen. */
+
+:root {
+  --paper: #f2f4f0;
+  --surface: #ffffff;
+  --surface-2: #e8ebe5;
+  --ink: #111716;
+  --ink-2: #3b4441;
+  --muted: #6c7873;
+  --line: #d5dad2;
+  --line-2: #b6bdb4;
+  --accent: #0b6b4f;
+  --accent-ink: #075139;
+  --accent-bg: #e0efe8;
+  --warn: #8a5a0b;
+  --warn-bg: #f6eddb;
+  --danger: #9a2f2f;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #0d1211;
+    --surface: #151b19;
+    --surface-2: #1c2321;
+    --ink: #e7edea;
+    --ink-2: #b5c0bb;
+    --muted: #86928d;
+    --line: #28302e;
+    --line-2: #3a4441;
+    --accent: #4ec69a;
+    --accent-ink: #a6e7cc;
+    --accent-bg: #10281f;
+    --warn: #d6a44a;
+    --warn-bg: #2a2214;
+    --danger: #e08585;
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-line-2: var(--line-2);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-bg: var(--accent-bg);
+  --color-warn: var(--warn);
+  --color-warn-bg: var(--warn-bg);
+  --color-danger: var(--danger);
+
+  --font-sans: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, monospace;
+}
+
+html {
+  background: var(--paper);
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  /* Ruimte voor de balk onderaan op mobiel. */
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Cijfers die in kolommen staan moeten uitlijnen. */
+.cijfers {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.label {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* Invoervelden. Genoeg tikruimte op een telefoon; 16px voorkomt dat iOS
+   inzoomt bij focus. */
+.veld {
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  border-radius: 3px;
+  padding: 0.625rem 0.75rem;
+  font-size: 16px;
+  color: var(--ink);
+  width: 100%;
+  min-height: 44px;
+}
+.veld:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.knop {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0 1rem;
+  border-radius: 3px;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.knop:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.knop-primair {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+@media (prefers-color-scheme: dark) {
+  .knop-primair {
+    color: #06231a;
+  }
+}
+.knop-primair:hover:not(:disabled) {
+  opacity: 0.9;
+}
+.knop-stil {
+  background: var(--surface);
+  color: var(--ink);
+  border-color: var(--line-2);
+}
+.knop-stil:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+.knop-kaal {
+  background: none;
+  color: var(--accent-ink);
+  min-height: 36px;
+  padding: 0 0.5rem;
+}
+.knop:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: 2px;
+}
+
+.kaart {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+.tabel-omhulsel {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
