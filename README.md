@@ -1,22 +1,45 @@
 # Declaratietool
 
-Uren-, bezoek- en kilometerregistratie voor een klein team: uren op klant, project en
-projectonderdeel, ritten en kilometers om te declareren, verkooptarieven naast interne
-kostprijs zodat de marge per project zichtbaar is.
+Uren-, bezoek- en kilometerregistratie voor een klein team: uren op klant,
+project en projectonderdeel, ritten en kilometers om te declareren,
+verkooptarieven naast interne kostprijs zodat de marge per project zichtbaar is.
 
 ## Status
 
-Nog geen code. Er ligt een keuzedocument met de beslissingen die de bouw bepalen.
+De keuzes zijn gemaakt en het datamodel staat er, met tests. Nog geen
+applicatiecode.
 
-- `docs/keuzeplan.html` — het plan, met per beslissing de opties en een aanbeveling.
-  Gepubliceerd als artifact; keuzes die daar aangevinkt worden, worden gedeeld bewaard.
+| | |
+|---|---|
+| `docs/keuzeplan.html` | Het plan: per beslissing de opties en hun gevolgen |
+| `docs/besluiten.md` | Wat er gekozen is, met de codes uit het plan |
+| `docs/datamodel.md` | Hoe het model in elkaar zit en waarom |
+| `supabase/migrations/` | Het schema: tabellen, tarieflogica, rechten |
+| `supabase/tests/` | Schematests |
+| `scripts/test-db.sh` | Draait migraties en tests tegen een wegwerpdatabase |
+
+## Testen
+
+```sh
+./scripts/test-db.sh
+```
+
+Start zelf een tijdelijke postgres, draait alle migraties, voert zeventien
+controles uit en ruimt daarna op. Vereist een lokale PostgreSQL-installatie
+(versie 15 of hoger, vanwege `security_invoker` op views).
+
+Tegen een draaiende server:
+
+```sh
+PGHOST=... PGPORT=... PGUSER=... ./scripts/test-db.sh --bestaande-server
+```
 
 ## Volgende stap
 
-De beslissingen met de markering **nu** blokkeren de bouw. Zodra die gemaakt zijn:
+Fase 1 uit het keuzeplan: klanten, projecten en onderdelen beheren, uren
+schrijven op mobiel en desktop, ritten en kilometers, export. Het schema
+hieronder is daarop voorbereid.
 
-1. Datamodel vastleggen op basis van A2/A3 (techniek en opslag) en B1 (projectstructuur).
-2. Fase 1 bouwen: klanten, projecten, onderdelen, urenregistratie mobiel en desktop,
-   ritten en kilometers, export.
-
-De fasering staat in deel 3 van het keuzeplan.
+Nog te beantwoorden voordat fase 3 begint: welk boekhoudpakket in gebruik is,
+en of er in een auto van de zaak gereden wordt. Zie het slot van
+`docs/besluiten.md`.
