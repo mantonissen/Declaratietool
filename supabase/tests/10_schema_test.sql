@@ -428,4 +428,55 @@ begin
 end
 $$;
 
+-- ------------------------------------------------------- 18. facturatie ----
+
+do $$
+declare
+  n int;
+  r record;
+begin
+  -- Als eigenaar via de rechten: factureren en daarna op slot.
+  set local role authenticated;
+  perform set_config('request.jwt.claim.sub',
+                     '11111111-1111-1111-1111-111111111111', true);
+
+  update urenregel set status = 'gefactureerd', factuur_referentie = '2026-001'
+   where datum = '2026-04-02';
+  get diagnostics n = row_count;
+  if n <> 1 then raise exception 'Eigenaar hoort te kunnen factureren, raakte % regels', n; end if;
+
+  select * into r from v_factuur where referentie = '2026-001';
+  if r.minuten <> 480 then raise exception 'Factuur hoort 480 minuten te dragen, kreeg %', r.minuten; end if;
+  if r.omzet is null then raise exception 'Eigenaar hoort het factuurbedrag te zien'; end if;
+
+  begin
+    update urenregel set minuten = 60 where factuur_referentie = '2026-001';
+    raise exception 'Gefactureerde regel had op slot moeten zitten';
+  exception when restrict_violation then null;
+  end;
+
+  reset role;
+
+  -- Als medewerker: zelf factureren kan niet, en de eigen factuur is
+  -- zichtbaar zonder bedrag.
+  set local role authenticated;
+  perform set_config('request.jwt.claim.sub',
+                     '22222222-2222-2222-2222-222222222222', true);
+
+  begin
+    update urenregel set status = 'gefactureerd', factuur_referentie = 'X'
+     where datum = '2026-05-04';
+    get diagnostics n = row_count;
+    if n > 0 then raise exception 'Medewerker mocht factureren'; end if;
+  exception when insufficient_privilege then null;
+  end;
+
+  select * into r from v_factuur where referentie = '2026-001';
+  if r.omzet is not null then raise exception 'Medewerker zag een factuurbedrag'; end if;
+
+  reset role;
+  raise notice 'OK 18. factureren zet op slot; medewerker kan het niet en ziet geen bedrag';
+end
+$$;
+
 select 'Alle tests geslaagd.' as resultaat;

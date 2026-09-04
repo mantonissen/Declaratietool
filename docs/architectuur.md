@@ -76,7 +76,40 @@ account.
 | `/beheer/medewerkers` | Medewerkers, rechten en kostprijs per periode (B3a, D2a) |
 | `/goedkeuren` | Ingediende weken beoordelen; goedkeuren bevriest de bedragen (D1a, B4a) |
 | `/inzicht` | Uren, omzet, kosten, marge en budget per periode (E1a) |
+| `/facturen` | Factuurvoorstel per klant; markeren als gefactureerd zet de regels op slot |
+| `/facturen/[ref]` | Eén factuur: regels, specificatie, correcties met tegenboeking (D3a) |
+| `/api/specificatie` | Urenspecificatie als PDF, per klant of per factuur (E3a) |
+| `/beheer/instellingen` | Bedrijfsgegevens voor bovenaan de specificatie |
 | `/export` → `/api/export` | CSV van uren of ritten (E2a) |
+
+## Factureren
+
+Een factuur is geen eigen tabel. De eigenaar kiest een klant en een periode,
+ziet de goedgekeurde regels die nog niet gefactureerd zijn, en geeft een
+factuurnummer op; dat nummer komt als `factuur_referentie` op elke regel en de
+status wordt `gefactureerd`. Vanaf dat moment weigert de trigger uit de
+migraties elke wijziging aan datum, minuten of onderdeel. De factuur zelf maak
+je in het boekhoudpakket (keuze E2a); de app levert de specificatie als bijlage.
+
+De view `v_factuur` telt per referentie de bevroren bedragen op. Omdat hij op
+de afgeschermde views leunt, ziet een medewerker zijn eigen factuurregels maar
+geen bedrag — dat is getest in `supabase/tests/10_schema_test.sql` (test 18).
+
+**Corrigeren** (keuze D3a): het origineel blijft staan. Er komt een tegenboeking
+bij met negatieve minuten, `correctie_van_id` naar het origineel, en als
+handmatig tarief het bevroren tarief van het origineel — zodat de creditering
+precies het origineel opheft, ook als het tarief inmiddels is veranderd. Wil je
+een ander aantal uren, dan komt er een nieuwe regel bij. Beide vallen in de
+huidige periode en verschijnen in het volgende factuurvoorstel van die klant.
+
+## De specificatie
+
+`lib/pdf.ts` tekent de PDF met pdfkit: A4, Helvetica, per project een blok met
+subtotaal, reiskosten apart, totaal exclusief btw. Per klant is instelbaar of
+omschrijvingen en tarieven erop staan (`klant.specificatie_omschrijving`,
+`klant.specificatie_tarieven`); met `?detail=vol` krijg je altijd alles, voor
+intern gebruik. pdfkit staat in `serverExternalPackages`, anders raakt het zijn
+lettertypen kwijt in de bundel.
 
 ## Inzicht en grafieken
 

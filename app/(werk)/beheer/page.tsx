@@ -42,8 +42,10 @@ export default async function BeheerPagina() {
             {openStaten > 0 && <span className="cijfers rounded bg-surface/25 px-1.5 text-xs">{openStaten}</span>}
           </Link>
         )}
+        {eigenaar && <Link href="/facturen" className="knop knop-stil">Facturen</Link>}
         <Link href="/beheer/tarieven" className="knop knop-stil">Tarieven</Link>
         {eigenaar && <Link href="/beheer/medewerkers" className="knop knop-stil">Medewerkers</Link>}
+        {eigenaar && <Link href="/beheer/instellingen" className="knop knop-stil">Bedrijfsgegevens</Link>}
         <Link href="/export" className="knop knop-stil">Exporteren</Link>
       </nav>
 

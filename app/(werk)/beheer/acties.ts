@@ -52,11 +52,37 @@ export async function werkKlantBij(formData: FormData) {
       adres = ${tekst(formData, "adres")},
       postcode = ${tekst(formData, "postcode")},
       afstand_km = ${getal(formData, "afstandKm")},
+      contactpersoon = ${tekst(formData, "contactpersoon")},
+      factuur_referentie = ${tekst(formData, "factuurReferentie")},
+      specificatie_omschrijving = ${formData.get("specOmschrijving") === "aan"},
+      specificatie_tarieven = ${formData.get("specTarieven") === "aan"},
       actief = ${formData.get("actief") === "aan"}
     where id = ${id}
   `);
   revalidatePath("/beheer");
   revalidatePath(`/beheer/klant/${id}`);
+}
+
+export async function werkInstellingenBij(formData: FormData) {
+  const sessie = await beheerSessie();
+  if (sessie.rechten !== "eigenaar") throw new Error("Alleen de eigenaar.");
+  const naam = tekst(formData, "bedrijfsnaam");
+  if (!naam) throw new Error("Vul een bedrijfsnaam in; die komt op de specificatie.");
+  await alsGebruiker(sessie.authUserId, (tx) => tx`
+    update instellingen set
+      bedrijfsnaam = ${naam},
+      adres = ${tekst(formData, "adres")},
+      postcode = ${tekst(formData, "postcode")},
+      plaats = ${tekst(formData, "plaats")},
+      kvk_nummer = ${tekst(formData, "kvk")},
+      btw_nummer = ${tekst(formData, "btw")},
+      iban = ${tekst(formData, "iban")},
+      email = ${tekst(formData, "email")},
+      telefoon = ${tekst(formData, "telefoon")},
+      gewijzigd_op = now()
+    where id
+  `);
+  revalidatePath("/beheer/instellingen");
 }
 
 export async function nieuwProject(formData: FormData) {

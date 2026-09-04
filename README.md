@@ -6,10 +6,11 @@ verkooptarieven naast interne kostprijs zodat de marge per project zichtbaar is.
 
 ## Status
 
-Fase 1 en 2 draaien: inloggen, uren schrijven op mobiel en desktop, ritten en
-kilometers, week indienen en goedkeuren, klanten, projecten, tarieven,
+Fase 1 tot en met 3 draaien: inloggen, uren schrijven op mobiel en desktop,
+ritten en kilometers, week indienen en goedkeuren, klanten, projecten, tarieven,
 kostprijzen en medewerkers beheren, inzicht in uren, omzet, marge en budget,
-export naar CSV.
+factuurvoorstel per klant met urenspecificatie als PDF, correcties met een
+tegenboeking, export naar CSV.
 
 | | |
 |---|---|
@@ -55,8 +56,9 @@ onder meer de tariefzoekvolgorde en de afscherming, en ruimt daarna op.
 
 ## Volgende stap
 
-Fase 3 uit het keuzeplan: urenspecificatie als PDF voor de klant,
-factuurvoorstel per klant, en correctieregels na facturatie vanuit de app.
+Het keuzeplan is tot en met fase 3 gebouwd. Fase 4 is optioneel en op volgorde
+van wat het meest irriteert: koppeling met de boekhouding (E2b), bonnetjes
+fotograferen (C5), offline invoeren, verlof en ziekte, bezettingsprognose.
 
 Nog te beantwoorden: welk boekhoudpakket in gebruik is, en of er in een auto van
 de zaak gereden wordt. Zie het slot van `docs/besluiten.md`.

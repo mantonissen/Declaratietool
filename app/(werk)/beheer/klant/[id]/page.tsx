@@ -18,7 +18,8 @@ export default async function KlantPagina({
 
   const [klanten, projecten] = await alsGebruiker(sessie.authUserId, async (tx) => [
     await tx`
-      select id, naam, code, plaats, adres, postcode,
+      select id, naam, code, plaats, adres, postcode, contactpersoon,
+             factuur_referentie, specificatie_omschrijving, specificatie_tarieven,
              afstand_km::float8 as afstand_km, actief
       from klant where id = ${id}
     `,
@@ -106,7 +107,28 @@ export default async function KlantPagina({
             </span>
           </label>
         </div>
-        <label className="flex items-center gap-3 text-sm">
+        <div className="grid gap-4 border-t border-line pt-4 sm:grid-cols-2">
+          <label className="flex flex-col gap-2">
+            <span className="label">Contactpersoon</span>
+            <input name="contactpersoon" defaultValue={(klant.contactpersoon as string) ?? ""} className="veld" placeholder="Komt op de specificatie" />
+          </label>
+          <label className="flex flex-col gap-2">
+            <span className="label">Referentie van de klant</span>
+            <input name="factuurReferentie" defaultValue={(klant.factuur_referentie as string) ?? ""} className="veld" placeholder="Inkoopnummer of PO" />
+          </label>
+        </div>
+        <fieldset className="flex flex-col gap-2 border-t border-line pt-4">
+          <legend className="label mb-1">Urenspecificatie voor deze klant</legend>
+          <label className="flex items-center gap-3 text-sm">
+            <input type="checkbox" name="specOmschrijving" value="aan" defaultChecked={klant.specificatie_omschrijving as boolean} className="size-5 accent-[var(--accent)]" />
+            Met omschrijvingen van de urenregels
+          </label>
+          <label className="flex items-center gap-3 text-sm">
+            <input type="checkbox" name="specTarieven" value="aan" defaultChecked={klant.specificatie_tarieven as boolean} className="size-5 accent-[var(--accent)]" />
+            Met uurtarieven en bedragen
+          </label>
+        </fieldset>
+        <label className="flex items-center gap-3 border-t border-line pt-4 text-sm">
           <input
             type="checkbox"
             name="actief"
