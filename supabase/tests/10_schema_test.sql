@@ -525,4 +525,70 @@ begin
 end
 $$;
 
+-- ------------------------------------------------ 20. abonnementen ----------
+
+insert into project (id, klant_id, naam, code, facturatiemodel, herhaal_interval,
+                     herhaal_bedrag, herhaal_omschrijving, herhaal_start, herhaal_volgende)
+values ('dddddddd-0000-0000-0000-000000000003', 'cccccccc-0000-0000-0000-000000000001',
+        'Beheerabonnement', 'NOORD-03', 'abonnement', 'maand', 1250, 'Beheer',
+        date_trunc('month', current_date - interval '2 months')::date,
+        date_trunc('month', current_date - interval '2 months')::date);
+insert into projectonderdeel (id, project_id, naam) values
+  ('eeeeeeee-0000-0000-0000-000000000010', 'dddddddd-0000-0000-0000-000000000003', 'Beheer');
+-- Goedgekeurde uren van vóór de eerste periode: die horen als verantwoording mee.
+insert into urenregel (medewerker_id, onderdeel_id, datum, minuten, status) values
+  ('bbbbbbbb-0000-0000-0000-000000000002', 'eeeeeeee-0000-0000-0000-000000000010',
+   (date_trunc('month', current_date - interval '3 months') + interval '5 days')::date, 120, 'goedgekeurd');
+
+do $$
+declare
+  n1 int; n2 int; r record; volgende date;
+begin
+  -- Eerste run als eigenaar via de rechten: drie periodes inhalen.
+  set local role authenticated;
+  perform set_config('request.jwt.claim.sub',
+                     '11111111-1111-1111-1111-111111111111', true);
+  select count(*) into n1 from verwerk_periodieke_facturen();
+  if n1 <> 3 then raise exception 'Verwacht 3 ingehaalde periodes, kreeg %', n1; end if;
+
+  -- Tweede run doet niets: idempotent.
+  select count(*) into n2 from verwerk_periodieke_facturen();
+  if n2 <> 0 then raise exception 'Tweede run hoort niets te doen, deed %', n2; end if;
+  reset role;
+
+  select count(*) into n1 from termijn
+   where project_id = 'dddddddd-0000-0000-0000-000000000003' and factuur_referentie is not null;
+  if n1 <> 3 then raise exception 'Drie termijnen horen gefactureerd te zijn, %', n1; end if;
+
+  -- Nummers uit de reeks, oplopend, huidig jaar.
+  select string_agg(factuur_referentie, ',' order by periode_start) into r
+    from termijn where project_id = 'dddddddd-0000-0000-0000-000000000003';
+  if r.string_agg !~ ('^' || extract(year from current_date)::int || '-\d{3},') then
+    raise exception 'Nummers horen JJJJ-NNN te zijn, kreeg %', r.string_agg;
+  end if;
+
+  select herhaal_volgende into volgende from project where id = 'dddddddd-0000-0000-0000-000000000003';
+  if volgende <= current_date then raise exception 'herhaal_volgende hoort in de toekomst te staan, is %', volgende; end if;
+
+  -- De oude goedgekeurde uren hangen aan de eerste automatische factuur.
+  select u.status, u.factuur_referentie into r from urenregel u
+   where u.onderdeel_id = 'eeeeeeee-0000-0000-0000-000000000010';
+  if r.status <> 'gefactureerd' or r.factuur_referentie is null then
+    raise exception 'Uren van voor de periode horen als verantwoording mee te gaan';
+  end if;
+
+  -- Een handmatig nummer in dezelfde vorm schuift de teller mee.
+  perform noteer_factuurnummer(extract(year from current_date)::int || '-050');
+  if volgend_factuurnummer() <> extract(year from current_date)::int || '-051' then
+    raise exception 'Teller hoort na handmatig 050 op 051 te staan';
+  end if;
+
+  -- v_factuur kent de automatische facturen als project Beheerabonnement.
+  select count(*) into n1 from v_factuur where project = 'Beheerabonnement' and totaal = 1250;
+  if n1 <> 3 then raise exception 'v_factuur hoort drie abonnementsfacturen van 1250 te tonen, %', n1; end if;
+
+  raise notice 'OK 20. abonnement: periodes ingehaald, idempotent, genummerd, uren als verantwoording';
+end
+$$;
+
 select 'Alle tests geslaagd.' as resultaat;

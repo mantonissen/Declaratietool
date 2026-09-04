@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { vereisteSessie } from "@/lib/auth";
 import { isGeldigeDatum, leesMinuten } from "@/lib/datum";
-import { markeerGefactureerd, boekCorrectie, nieuweTermijn, verwijderTermijn } from "@/lib/facturatie";
+import { markeerGefactureerd, boekCorrectie, nieuweTermijn, verwijderTermijn, markeerVerwerkt } from "@/lib/facturatie";
 
 async function eigenaarSessie() {
   const sessie = await vereisteSessie();
@@ -63,6 +63,13 @@ export async function termijnVerwijderen(formData: FormData) {
   if (id) await verwijderTermijn(sessie, id);
   revalidatePath("/facturen");
   revalidatePath(`/beheer/project/${projectId}`);
+}
+
+export async function verwerktInBoekhouding(formData: FormData) {
+  const sessie = await eigenaarSessie();
+  const id = String(formData.get("termijnId") ?? "");
+  if (id) await markeerVerwerkt(sessie, id);
+  revalidatePath("/facturen");
 }
 
 export async function corrigeer(formData: FormData) {

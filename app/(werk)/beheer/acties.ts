@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { vereisteSessie, magBeheren } from "@/lib/auth";
 import { alsGebruiker } from "@/lib/db";
+import { isGeldigeDatum } from "@/lib/datum";
 
 async function beheerSessie() {
   const sessie = await vereisteSessie();
@@ -91,7 +92,8 @@ export async function nieuwProject(formData: FormData) {
   const naam = tekst(formData, "naam");
   if (!klantId || !naam) throw new Error("Een project heeft een klant en een naam nodig.");
 
-  const model = formData.get("facturatiemodel") === "vaste_prijs" ? "vaste_prijs" : "nacalculatie";
+  const modelNieuw = String(formData.get("facturatiemodel") ?? "nacalculatie");
+  const model = ["nacalculatie", "vaste_prijs", "abonnement"].includes(modelNieuw) ? modelNieuw : "nacalculatie";
   await alsGebruiker(sessie.authUserId, (tx) => tx`
     insert into project (klant_id, naam, code, budget_uren, budget_bedrag, facturatiemodel, vaste_prijs)
     values (${klantId}, ${naam}, ${tekst(formData, "code")},
@@ -112,7 +114,8 @@ export async function werkProjectBij(formData: FormData) {
   if (!STATUSSEN.includes(status)) throw new Error("Onbekende status.");
 
   // Het facturatiemodel raakt geld; dat blijft bij de eigenaar.
-  const model = formData.get("facturatiemodel") === "vaste_prijs" ? "vaste_prijs" : "nacalculatie";
+  const modelRuw = String(formData.get("facturatiemodel") ?? "nacalculatie");
+  const model = ["nacalculatie", "vaste_prijs", "abonnement"].includes(modelRuw) ? modelRuw : "nacalculatie";
   if (sessie.rechten !== "eigenaar") {
     await alsGebruiker(sessie.authUserId, (tx) => tx`
       update project set naam = ${naam}, code = ${tekst(formData, "code")},
@@ -120,11 +123,32 @@ export async function werkProjectBij(formData: FormData) {
       where id = ${id}
     `);
   } else {
+    const interval = String(formData.get("herhaalInterval") ?? "maand");
+    const start = tekst(formData, "herhaalStart");
+    const einde = tekst(formData, "herhaalEinde");
+    if (model === "abonnement") {
+      if (!["maand", "kwartaal", "jaar"].includes(interval)) throw new Error("Onbekende periode.");
+      if (!start || !isGeldigeDatum(start)) throw new Error("Een abonnement heeft een begindatum van de eerste periode nodig.");
+      if (getal(formData, "herhaalBedrag") === null) throw new Error("Vul het bedrag per periode in.");
+      if (einde && !isGeldigeDatum(einde)) throw new Error("Ongeldige einddatum.");
+    }
     await alsGebruiker(sessie.authUserId, (tx) => tx`
       update project set naam = ${naam}, code = ${tekst(formData, "code")},
         status = ${status}::project_status, budget_uren = ${getal(formData, "budgetUren")},
         facturatiemodel = ${model}::facturatiemodel,
-        vaste_prijs = ${getal(formData, "vastePrijs")}
+        vaste_prijs = ${getal(formData, "vastePrijs")},
+        herhaal_interval = ${model === "abonnement" ? interval : null}::herhaal_interval,
+        herhaal_bedrag = ${model === "abonnement" ? getal(formData, "herhaalBedrag") : null},
+        herhaal_omschrijving = ${tekst(formData, "herhaalOmschrijving")},
+        herhaal_start = ${model === "abonnement" ? start : null},
+        herhaal_einde = ${model === "abonnement" ? einde : null},
+        -- De teller begint bij de eerste periode, of loopt door waar hij was;
+        -- schuift de start naar later, dan schuift de teller mee.
+        herhaal_volgende = case
+          when ${model} <> 'abonnement' then null
+          when herhaal_volgende is null or herhaal_volgende < ${start}::date then ${start}::date
+          else herhaal_volgende end,
+        automatisch_factureren = ${formData.get("automatisch") === "aan"}
       where id = ${id}
     `);
   }

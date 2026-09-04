@@ -80,9 +80,11 @@ export type ProjectKop = {
   id: string;
   naam: string;
   code: string | null;
-  facturatiemodel: "nacalculatie" | "vaste_prijs";
+  facturatiemodel: Facturatiemodel;
   vastePrijs: number | null;
 };
+
+export type Facturatiemodel = "nacalculatie" | "vaste_prijs" | "abonnement";
 
 export type Selectie =
   | { factuur: string }
@@ -292,6 +294,9 @@ export async function markeerGefactureerd(
       select 1 from v_factuur where referentie = ${referentie} limit 1
     `;
     if (bestaat.length) throw new Error(`Referentie ${referentie} is al gebruikt.`);
+    // Een handmatig nummer in de vorm van de reeks schuift de teller mee,
+    // zodat automatische facturen er nooit overheen nummeren.
+    await tx`select noteer_factuurnummer(${referentie})`;
 
     const u = await tx`
       update urenregel u
@@ -376,7 +381,7 @@ export type TeFactureren = {
   projectId: string;
   project: string;
   klant: string;
-  facturatiemodel: "nacalculatie" | "vaste_prijs";
+  facturatiemodel: Facturatiemodel;
   vastePrijs: number | null;
   regels: number;
   minuten: number;
@@ -512,4 +517,89 @@ export async function boekCorrectie(
       `;
     }
   });
+}
+
+// ---------------------------------------------------------- abonnementen --
+
+export type Verwerkt = {
+  projectId: string;
+  termijnId: string;
+  periodeStart: Datum;
+  referentie: string | null;
+};
+
+/**
+ * Maakt voor alle abonnementen de termijnen (en facturen) aan tot en met
+ * vandaag. Idempotent, dus dit mag bij elk bezoek aan het factuurscherm én
+ * dagelijks via cron.
+ */
+export async function verwerkPeriodiek(sessie: Sessie): Promise<Verwerkt[]> {
+  const rijen = await alsGebruiker(sessie.authUserId, (tx) => tx`
+    select * from verwerk_periodieke_facturen()
+  `);
+  return rijen.map((r) => ({
+    projectId: r.uit_project_id as string,
+    termijnId: r.uit_termijn_id as string,
+    periodeStart: r.uit_periode_start as Datum,
+    referentie: (r.uit_referentie as string) ?? null,
+  }));
+}
+
+export type AutomatischeFactuur = {
+  termijnId: string;
+  referentie: string;
+  project: string;
+  klant: string;
+  omschrijving: string;
+  bedrag: number;
+  periodeStart: Datum;
+  periodeEinde: Datum | null;
+  gefactureerdOp: string;
+  verwerktOp: string | null;
+};
+
+/** Automatisch aangemaakte facturen, nieuwste eerst; onverwerkte bovenaan. */
+export async function automatischeFacturen(sessie: Sessie): Promise<AutomatischeFactuur[]> {
+  const rijen = await alsGebruiker(sessie.authUserId, (tx) => tx`
+    select t.id, t.factuur_referentie, p.naam as project, k.naam as klant,
+           t.omschrijving, t.bedrag::float8 as bedrag, t.periode_start, t.periode_einde,
+           t.gefactureerd_op, t.verwerkt_op
+    from termijn t
+    join project p on p.id = t.project_id
+    join klant k on k.id = p.klant_id
+    where t.automatisch and t.factuur_referentie is not null
+    order by (t.verwerkt_op is null) desc, t.gefactureerd_op desc
+    limit 100
+  `);
+  return rijen.map((r) => ({
+    termijnId: r.id as string,
+    referentie: r.factuur_referentie as string,
+    project: r.project as string,
+    klant: r.klant as string,
+    omschrijving: r.omschrijving as string,
+    bedrag: Number(r.bedrag),
+    periodeStart: r.periode_start as Datum,
+    periodeEinde: (r.periode_einde as Datum) ?? null,
+    gefactureerdOp: String(r.gefactureerd_op),
+    verwerktOp: r.verwerkt_op ? String(r.verwerkt_op) : null,
+  }));
+}
+
+export async function markeerVerwerkt(sessie: Sessie, termijnId: string): Promise<void> {
+  await alsGebruiker(sessie.authUserId, (tx) => tx`
+    update termijn set verwerkt_op = now()
+    where id = ${termijnId} and automatisch and factuur_referentie is not null
+  `);
+}
+
+/** Het nummer dat de reeks als volgende zou uitgeven, zonder het te verbruiken. */
+export async function volgendNummerSuggestie(sessie: Sessie): Promise<string> {
+  const [i] = await alsGebruiker(sessie.authUserId, (tx) => tx`
+    select factuur_prefix, factuur_jaar, factuur_volgnummer,
+           extract(year from current_date)::int as jaar
+    from instellingen
+  `);
+  const jaar = Number(i.jaar);
+  const n = Number(i.factuur_jaar) === jaar ? Number(i.factuur_volgnummer) + 1 : 1;
+  return `${(i.factuur_prefix as string) ?? ""}${jaar}-${String(n).padStart(3, "0")}`;
 }

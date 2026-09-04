@@ -155,6 +155,20 @@ door bestede uren, het getal dat bij een vaste prijs telt.
 Een gefactureerde termijn is op slot (trigger). Klopt hij niet, dan volgt een
 creditnota in het boekhoudpakket; hier blijft de historie staan.
 
+## Abonnementen
+
+Het derde model, `abonnement`, hergebruikt de termijnen: `project` krijgt
+`herhaal_interval` (maand, kwartaal, jaar), `herhaal_bedrag`, een omschrijving,
+een begin- en optionele einddatum, en `herhaal_volgende` — de eerste dag van de
+eerstvolgende periode die nog geen termijn heeft. `verwerk_periodieke_facturen()`
+loopt van die datum tot vandaag en maakt per periode één termijn
+(`periode_start`, `periode_einde`, `automatisch = true`), beschermd door een
+unieke index op project en periode. Met `automatisch_factureren` krijgt de
+termijn direct een nummer uit de reeks in `instellingen`
+(`factuur_prefix`, `factuur_jaar`, `factuur_volgnummer`) en gaan de goedgekeurde
+uren van vóór de periode mee als verantwoording. `verwerkt_op` op de termijn
+markeert dat de eigenaar de factuur in de boekhouding heeft overgenomen.
+
 ## Facturen
 
 Een factuur is geen tabel maar een `factuur_referentie` op urenregels, ritten

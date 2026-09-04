@@ -152,6 +152,24 @@ from project p, (values
 where p.code = 'MER-01'
   and not exists (select 1 from termijn t where t.project_id = p.id);
 
+-- Een maandabonnement voor het waterschap, drie maanden geleden gestart:
+-- de eerste keer dat het factuurscherm opent, worden die maanden ingehaald.
+insert into project (id, klant_id, naam, code, projectleider_id, facturatiemodel,
+                     herhaal_interval, herhaal_bedrag, herhaal_omschrijving,
+                     herhaal_start, herhaal_volgende, start_datum)
+select 'dddddddd-0000-0000-0000-000000000004', k.id, 'Beheer en monitoring', 'WSR-03',
+       'bbbbbbbb-0000-0000-0000-000000000003', 'abonnement',
+       'maand', 1250.00, 'Beheer en monitoring',
+       date_trunc('month', current_date - interval '3 months')::date,
+       date_trunc('month', current_date - interval '3 months')::date,
+       date_trunc('month', current_date - interval '3 months')::date
+from klant k where k.code = 'WSR'
+on conflict (id) do nothing;
+insert into projectonderdeel (id, project_id, naam, declarabel, sortering) values
+  ('eeeeeeee-0000-0000-0000-000000000011', 'dddddddd-0000-0000-0000-000000000004', 'Monitoring', true, 1),
+  ('eeeeeeee-0000-0000-0000-000000000012', 'dddddddd-0000-0000-0000-000000000004', 'Storingen', true, 2)
+on conflict (id) do nothing;
+
 -- Sam heeft twee weken geleden ingediend en wacht op goedkeuring, zodat het
 -- goedkeurscherm iets te doen heeft.
 with basis as (select (date_trunc('week', current_date) - interval '14 days')::date as maandag)

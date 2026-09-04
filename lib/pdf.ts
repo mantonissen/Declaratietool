@@ -49,7 +49,7 @@ export async function specificatiePdf(inv: Invoer): Promise<Buffer> {
   const klaar = new Promise<Buffer>((r) => doc.on("end", () => r(Buffer.concat(delen))));
 
   const breed = A4.b - 2 * M;
-  const vast = inv.project.facturatiemodel === "vaste_prijs";
+  const vast = inv.project.facturatiemodel !== "nacalculatie";
   // Termijnbedragen zijn de factuur zelf; die staan er altijd op.
   const geld = inv.metTarieven || inv.termijnen.length > 0;
   const oms = inv.metOmschrijving;
@@ -139,18 +139,36 @@ export async function specificatiePdf(inv: Invoer): Promise<Buffer> {
     }
   };
 
-  const rij = (cellen: string[], opties?: { vet?: boolean; grijs?: boolean }) => {
+  // `span` laat één cel over meerdere kolommen lopen (van..tot, inclusief);
+  // de kolommen erbinnen worden overgeslagen. Voor termijnregels, die geen
+  // medewerker of uren hebben maar wel een lange omschrijving.
+  const rij = (
+    cellen: string[],
+    opties?: { vet?: boolean; grijs?: boolean; span?: { van: number; tot: number } },
+  ) => {
     doc.font(opties?.vet ? "Helvetica-Bold" : "Helvetica").fontSize(8.5)
       .fillColor(opties?.grijs ? GRIJS : INK);
+    const breedteVan = (i: number) => {
+      if (opties?.span && i === opties.span.van) {
+        return kol.slice(opties.span.van, opties.span.tot + 1).reduce((s, c) => s + c.b, 0);
+      }
+      return kol[i].b;
+    };
+    const overgeslagen = (i: number) =>
+      !!opties?.span && i > opties.span.van && i <= opties.span.tot;
+
     // Hoogte op basis van de hoogste cel, zodat lange omschrijvingen wikkelen.
     let h = 0;
-    kol.forEach((c, i) => {
-      h = Math.max(h, doc.heightOfString(cellen[i] ?? "", { width: c.b - 4 }));
+    kol.forEach((_, i) => {
+      if (overgeslagen(i)) return;
+      h = Math.max(h, doc.heightOfString(cellen[i] ?? "", { width: breedteVan(i) - 4 }));
     });
     nieuwePaginaAlsNodig(h + 6);
     let x = M;
     kol.forEach((c, i) => {
-      doc.text(cellen[i] ?? "", x + 2, y, { width: c.b - 4, align: c.r ? "right" : "left" });
+      if (!overgeslagen(i)) {
+        doc.text(cellen[i] ?? "", x + 2, y, { width: breedteVan(i) - 4, align: c.r ? "right" : "left" });
+      }
       x += c.b;
     });
     y += h + 5;
@@ -174,7 +192,7 @@ export async function specificatiePdf(inv: Invoer): Promise<Buffer> {
         "",
         "",
         euro(t.bedrag),
-      ]);
+      ], { span: { van: 2, tot: kol.length - 2 } });
     }
     doc.moveTo(M, y).lineTo(M + breed, y).strokeColor(LIJN).lineWidth(0.4).stroke();
     y += 3;

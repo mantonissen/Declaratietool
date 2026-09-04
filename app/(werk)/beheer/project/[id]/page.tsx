@@ -25,6 +25,9 @@ export default async function ProjectPagina({
       await tx`
         select p.id, p.naam, p.code, p.status, p.klant_id, p.facturatiemodel::text as model,
                p.vaste_prijs::float8 as vaste_prijs, p.budget_bedrag::float8 as budget_bedrag,
+               p.herhaal_interval::text as herhaal_interval, p.herhaal_bedrag::float8 as herhaal_bedrag,
+               p.herhaal_omschrijving, p.herhaal_start, p.herhaal_einde, p.herhaal_volgende,
+               p.automatisch_factureren,
                k.naam as klant, p.budget_uren::float8 as budget_uren
         from project p join klant k on k.id = p.klant_id
         where p.id = ${id}
@@ -56,6 +59,7 @@ export default async function ProjectPagina({
   if (!project) notFound();
   const cijfers = uitputting[0];
   const vast = project.model === "vaste_prijs";
+  const abonnement = project.model === "abonnement";
   const termijnen = zietBedragen(sessie.rechten) ? await termijnenVan(sessie, id) : [];
   const termijnTotaal = termijnen.reduce((s, t) => s + t.bedrag, 0);
 
@@ -69,7 +73,7 @@ export default async function ProjectPagina({
       </Link>
       <h1 className="mt-2 text-2xl font-bold tracking-tight md:text-3xl">
         {project.naam as string}
-        {vast && <span className="label ml-3 rounded bg-accent-bg px-1.5 py-0.5 align-middle text-accent-ink">vaste prijs</span>}
+        {(vast || abonnement) && <span className="label ml-3 rounded bg-accent-bg px-1.5 py-0.5 align-middle text-accent-ink">{abonnement ? "abonnement" : "vaste prijs"}</span>}
       </h1>
 
       {cijfers && (
@@ -118,23 +122,56 @@ export default async function ProjectPagina({
             <select name="facturatiemodel" defaultValue={project.model as string} className="veld" disabled={!eigenaar}>
               <option value="nacalculatie">Nacalculatie — uren × tarief</option>
               <option value="vaste_prijs">Vaste prijs — in termijnen</option>
+              <option value="abonnement">Abonnement — vast bedrag per periode</option>
             </select>
             {!eigenaar && <input type="hidden" name="facturatiemodel" value={project.model as string} />}
           </label>
           <label className="flex flex-col gap-2"><span className="label">Vaste prijs (bij dat model)</span>
             <input name="vastePrijs" inputMode="decimal" defaultValue={project.vaste_prijs === null ? "" : String(project.vaste_prijs)} className="veld cijfers" placeholder="afgesproken som excl. btw" /></label>
         </div>
+
+        {eigenaar && (
+          <fieldset className="grid gap-4 border-t border-line pt-4 sm:grid-cols-2">
+            <legend className="label mb-1">Abonnement (bij dat model)</legend>
+            <label className="flex flex-col gap-2"><span className="label">Elke</span>
+              <select name="herhaalInterval" defaultValue={(project.herhaal_interval as string) ?? "maand"} className="veld">
+                <option value="maand">Maand</option><option value="kwartaal">Kwartaal</option><option value="jaar">Jaar</option>
+              </select></label>
+            <label className="flex flex-col gap-2"><span className="label">Bedrag per periode</span>
+              <input name="herhaalBedrag" inputMode="decimal" defaultValue={project.herhaal_bedrag === null ? "" : String(project.herhaal_bedrag)} className="veld cijfers" placeholder="excl. btw" /></label>
+            <label className="flex flex-col gap-2"><span className="label">Omschrijving op de factuur</span>
+              <input name="herhaalOmschrijving" defaultValue={(project.herhaal_omschrijving as string) ?? ""} className="veld" placeholder="Bijvoorbeeld: Beheer en monitoring" /></label>
+            <label className="flex flex-col gap-2"><span className="label">Eerste periode begint op</span>
+              <input name="herhaalStart" type="date" defaultValue={(project.herhaal_start as string) ?? ""} className="veld" /></label>
+            <label className="flex flex-col gap-2"><span className="label">Laatste periode <span className="normal-case tracking-normal">(optioneel)</span></span>
+              <input name="herhaalEinde" type="date" defaultValue={(project.herhaal_einde as string) ?? ""} className="veld" /></label>
+            <label className="flex items-center gap-3 self-end pb-2 text-sm">
+              <input type="checkbox" name="automatisch" value="aan" defaultChecked={project.automatisch_factureren as boolean} className="size-5 accent-[var(--accent)]" />
+              Automatisch factureren met een nummer uit de reeks
+            </label>
+            {abonnement && project.herhaal_volgende && (
+              <p className="text-xs text-muted sm:col-span-2">
+                Volgende periode die wordt aangemaakt: {korteDatum(project.herhaal_volgende as string)}.
+                Zonder vinkje verschijnt elke periode als open termijn in het factuurvoorstel.
+              </p>
+            )}
+          </fieldset>
+        )}
         <button type="submit" className="knop knop-primair self-start">Opslaan</button>
       </form>
 
-      {vast && zietBedragen(sessie.rechten) && (
+      {(vast || abonnement) && zietBedragen(sessie.rechten) && (
         <section className="mt-8">
           <h2 className="mb-1 text-lg font-semibold">Termijnen</h2>
           <p className="mb-3 text-sm text-muted">
-            Bij welke opleveringen je factureert. Vaste prijs {euro(Number(project.vaste_prijs ?? 0))}
-            {termijnTotaal !== Number(project.vaste_prijs ?? 0) && (
-              <span className="text-warn"> — termijnen tellen op tot {euro(termijnTotaal)}</span>
-            )}.
+            {abonnement ? (
+              <>Per periode automatisch aangemaakt; wat hier staat is de historie.</>
+            ) : (
+              <>Bij welke opleveringen je factureert. Vaste prijs {euro(Number(project.vaste_prijs ?? 0))}
+              {termijnTotaal !== Number(project.vaste_prijs ?? 0) && (
+                <span className="text-warn"> — termijnen tellen op tot {euro(termijnTotaal)}</span>
+              )}.</>
+            )}
           </p>
           <ul className="kaart divide-y divide-line">
             {termijnen.map((t) => (

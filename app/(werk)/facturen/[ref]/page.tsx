@@ -16,7 +16,7 @@ export default async function FactuurPagina({ params }: { params: Promise<{ ref:
   const s = await specificatie(sessie, { factuur: referentie });
   if (!s.klant || !s.project || (s.uren.length === 0 && s.ritten.length === 0 && s.termijnen.length === 0)) notFound();
 
-  const vast = s.project.facturatiemodel === "vaste_prijs";
+  const vast = s.project.facturatiemodel !== "nacalculatie";
   const totOmzet = s.uren.reduce((a, u) => a + (u.omzet ?? 0), 0);
   const kmBedrag = s.ritten.reduce((a, r) => a + (r.kmBedrag ?? 0), 0);
   const termijnBedrag = s.termijnen.reduce((a, t) => a + t.bedrag, 0);
@@ -28,7 +28,7 @@ export default async function FactuurPagina({ params }: { params: Promise<{ ref:
   return (
     <div className="mx-auto max-w-4xl px-4 py-5 md:px-8 md:py-8">
       <Link href="/facturen" className="knop knop-kaal -ml-2">← Facturen</Link>
-      <p className="label mt-2">Factuur · {vast ? "vaste prijs" : "nacalculatie"}</p>
+      <p className="label mt-2">Factuur · {s.project.facturatiemodel === "abonnement" ? "abonnement" : vast ? "vaste prijs" : "nacalculatie"}</p>
       <h1 className="mt-1 text-2xl font-bold tracking-tight md:text-3xl">
         <span className="cijfers">{referentie}</span> · {s.project.naam}
       </h1>

@@ -46,6 +46,7 @@ redirect-lijst.
    | `AUTH_MODUS` | `supabase` |
    | `NEXT_PUBLIC_SUPABASE_URL` | Project URL uit stap 1 |
    | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | anon key uit stap 1 |
+   | `CRON_SECRET` | een lang willekeurig geheim; Vercel gebruikt het voor de dagelijkse abonnementsverwerking |
 
 3. Deploy. Je krijgt een adres als `declaratietool.vercel.app`; een eigen
    domein koppel je onder *Domains*.

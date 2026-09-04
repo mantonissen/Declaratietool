@@ -115,6 +115,24 @@ precies het origineel opheft, ook als het tarief inmiddels is veranderd. Wil je
 een ander aantal uren, dan komt er een nieuwe regel bij. Beide vallen in de
 huidige periode en verschijnen in het volgende factuurvoorstel van die klant.
 
+- **Abonnement** — een vast bedrag per maand, kwartaal of jaar. De functie
+  `verwerk_periodieke_facturen()` maakt per verstreken periode één termijn aan
+  (uniek op project en periode, dus de functie mag zo vaak draaien als je
+  wilt) en geeft die, als *automatisch factureren* aanstaat, meteen een
+  nummer uit de reeks `JJJJ-NNN` in `instellingen`. De goedgekeurde uren van
+  vóór die periode gaan mee als verantwoording. Een handmatig nummer in
+  dezelfde vorm schuift de teller mee, zodat de reeks nooit botst.
+
+  De verwerking draait op twee manieren: dagelijks via Vercel Cron
+  (`vercel.json` → `/api/cron/facturen`, beveiligd met `CRON_SECRET`), en
+  telkens als de eigenaar het factuurscherm opent. Het tweede maakt de eerste
+  optioneel — zonder cron loopt hooguit de datum van aanmaken iets achter.
+  Op Supabase kan pg_cron hetzelfde doen: `select cron.schedule('abonnementen',
+  '15 5 * * *', $$select verwerk_periodieke_facturen()$$)`.
+
+  Automatische facturen staan bovenaan het factuurscherm tot de eigenaar ze
+  in de boekhouding heeft overgenomen en afvinkt (`termijn.verwerkt_op`).
+
 ## De specificatie
 
 `lib/pdf.ts` tekent de PDF met pdfkit: A4, Helvetica, per project een blok met

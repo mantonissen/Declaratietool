@@ -2,9 +2,11 @@ import { Fragment } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { vereisteSessie } from "@/lib/auth";
-import { teFactureren, facturen, specificatie } from "@/lib/facturatie";
+import { teFactureren, facturen, specificatie, verwerkPeriodiek, automatischeFacturen, volgendNummerSuggestie } from "@/lib/facturatie";
 import { euro, getal, isGeldigeDatum, korteDatum, minutenAlsTijd, vandaag } from "@/lib/datum";
-import { factureer, termijnToevoegen } from "./acties";
+import { factureer, termijnToevoegen, verwerktInBoekhouding } from "./acties";
+
+const MODEL_LABEL: Record<string, string> = { vaste_prijs: "vaste prijs", abonnement: "abonnement" };
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +19,12 @@ export default async function FacturenPagina({
   if (sessie.rechten !== "eigenaar") redirect("/beheer");
   const p = await searchParams;
 
-  const [open, lijst] = await Promise.all([teFactureren(sessie), facturen(sessie)]);
+  // Abonnementen bijwerken vóór we lezen: wat vandaag verschuldigd is, staat er dan.
+  const zojuist = await verwerkPeriodiek(sessie);
+  const [open, lijst, automatisch, suggestie] = await Promise.all([
+    teFactureren(sessie), facturen(sessie), automatischeFacturen(sessie), volgendNummerSuggestie(sessie),
+  ]);
+  const onverwerkt = automatisch.filter((a) => !a.verwerktOp);
 
   const gekozen = open.find((o) => o.projectId === p.project) ?? null;
   const projectId = gekozen?.projectId ?? null;
@@ -25,8 +32,7 @@ export default async function FacturenPagina({
   const tot = isGeldigeDatum(p.tot) ? p.tot : (gekozen?.tot ?? vandaag());
   const voorstel = projectId ? await specificatie(sessie, { projectId, van, tot }) : null;
 
-  const jaar = vandaag().slice(0, 4);
-  const voorgesteldNummer = `${jaar}-${String(lijst.filter((f) => f.referentie.startsWith(jaar)).length + 1).padStart(3, "0")}`;
+  const voorgesteldNummer = suggestie;
   const huidigeUrl = `/facturen?project=${projectId}&van=${van}&tot=${tot}`;
 
   return (
@@ -40,6 +46,49 @@ export default async function FacturenPagina({
         bijlage. Daarna is het op slot.
       </p>
 
+      {zojuist.length > 0 && (
+        <p className="mb-4 rounded border border-accent bg-accent-bg px-3 py-2 text-sm">
+          Zojuist {zojuist.length} {zojuist.length === 1 ? "abonnementsperiode" : "abonnementsperiodes"} verwerkt.
+        </p>
+      )}
+
+      {automatisch.length > 0 && (
+        <section className="mb-8">
+          <h2 className="mb-1 text-lg font-semibold">
+            Automatisch aangemaakt
+            {onverwerkt.length > 0 && <span className="cijfers ml-2 rounded bg-warn-bg px-1.5 py-0.5 text-xs text-warn">{onverwerkt.length} nog te verwerken</span>}
+          </h2>
+          <p className="mb-3 text-sm text-muted">
+            Abonnementsfacturen met een nummer uit de reeks. Neem ze over in je boekhouding
+            met de specificatie als bijlage en vink ze dan af.
+          </p>
+          <div className="tabel-omhulsel">
+            <table className="w-full text-sm">
+              <tbody>
+                {automatisch.slice(0, onverwerkt.length + 5).map((a) => (
+                  <tr key={a.termijnId} className={`border-b border-line last:border-0 ${a.verwerktOp ? "text-muted" : ""}`}>
+                    <td className="px-4 py-2"><Link href={`/facturen/${encodeURIComponent(a.referentie)}`} className="cijfers font-medium text-accent-ink hover:underline">{a.referentie}</Link></td>
+                    <td className="px-4 py-2"><span className="block">{a.project}</span><span className="block text-xs text-muted">{a.klant} · {a.omschrijving}</span></td>
+                    <td className="cijfers px-4 py-2 text-right font-semibold whitespace-nowrap">{euro(a.bedrag)}</td>
+                    <td className="px-4 py-2 text-right whitespace-nowrap">
+                      <a href={`/api/specificatie?factuur=${encodeURIComponent(a.referentie)}`} className="knop knop-kaal knop-klein">PDF</a>
+                      {a.verwerktOp ? (
+                        <span className="label ml-2">verwerkt</span>
+                      ) : (
+                        <form action={verwerktInBoekhouding} className="inline">
+                          <input type="hidden" name="termijnId" value={a.termijnId} />
+                          <button type="submit" className="knop knop-stil knop-klein ml-2">Verwerkt</button>
+                        </form>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
       <h2 className="mb-2 text-lg font-semibold">Te factureren</h2>
       {open.length ? (
         <ul className="mb-6 flex flex-col gap-2">
@@ -49,7 +98,7 @@ export default async function FacturenPagina({
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold">
                     {o.project}
-                    {o.facturatiemodel === "vaste_prijs" && <span className="label ml-2 rounded bg-accent-bg px-1.5 py-0.5 text-accent-ink">vaste prijs</span>}
+                    {o.facturatiemodel !== "nacalculatie" && <span className="label ml-2 rounded bg-accent-bg px-1.5 py-0.5 text-accent-ink">{MODEL_LABEL[o.facturatiemodel]}</span>}
                   </p>
                   <p className="text-xs text-muted">
                     {o.klant}
@@ -59,7 +108,7 @@ export default async function FacturenPagina({
                 </div>
                 <div className="shrink-0 text-right">
                   <p className="cijfers text-sm font-semibold">
-                    {o.facturatiemodel === "vaste_prijs" ? euro(o.termijnBedrag ?? 0) : euro(o.omzet)}
+                    {o.facturatiemodel !== "nacalculatie" ? euro(o.termijnBedrag ?? 0) : euro(o.omzet)}
                   </p>
                   <p className="cijfers text-xs text-muted">{minutenAlsTijd(o.minuten)}</p>
                 </div>
@@ -72,7 +121,7 @@ export default async function FacturenPagina({
       )}
 
       {voorstel && voorstel.klant && voorstel.project && gekozen && (() => {
-        const vast = voorstel.project.facturatiemodel === "vaste_prijs";
+        const vast = voorstel.project.facturatiemodel !== "nacalculatie";
         const perOnderdeel = new Map<string, { min: number; omzet: number }>();
         for (const u of voorstel.uren) {
           const o = perOnderdeel.get(u.onderdeel) ?? { min: 0, omzet: 0 };
@@ -89,7 +138,7 @@ export default async function FacturenPagina({
         return (
           <section className="kaart mb-8 overflow-hidden">
             <header className="border-b border-line bg-surface-2 px-4 py-3">
-              <p className="label">Factuurvoorstel · {vast ? "vaste prijs" : "nacalculatie"}</p>
+              <p className="label">Factuurvoorstel · {vast ? MODEL_LABEL[voorstel.project.facturatiemodel] : "nacalculatie"}</p>
               <h2 className="text-lg font-semibold">{voorstel.project.naam} <span className="font-normal text-muted">· {voorstel.klant.naam}</span></h2>
             </header>
 
@@ -115,7 +164,9 @@ export default async function FacturenPagina({
                   <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
                     <h3 className="text-sm font-semibold">Termijnen</h3>
                     <p className="cijfers text-xs text-muted">
-                      Vaste prijs {euro(voorstel.project.vastePrijs)} · al gefactureerd {euro(alGefactureerd)} · open {euro(termijnTotaal)}
+                      {voorstel.project.facturatiemodel === "abonnement"
+                        ? `open ${euro(termijnTotaal)}`
+                        : `Vaste prijs ${euro(voorstel.project.vastePrijs)} · al gefactureerd ${euro(alGefactureerd)} · open ${euro(termijnTotaal)}`}
                     </p>
                   </div>
                   {voorstel.termijnen.length ? (

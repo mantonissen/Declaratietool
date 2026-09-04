@@ -22,7 +22,7 @@ staan.
 | **B2** | De volledige tariefzoekvolgorde van zeven niveaus |
 | **B3** | Interne kostprijs als vast bedrag per medewerker per periode |
 | **B4** | Bedragen bevriezen op het moment van goedkeuren |
-| **B5** | Nacalculatie én vaste prijs in termijnen bij tussenopleveringen — *gewijzigd van a naar b op 4 september 2026* |
+| **B5** | Nacalculatie, vaste prijs in termijnen bij tussenopleveringen, én abonnementen per maand, kwartaal of jaar die automatisch factureren — *gewijzigd van a naar c op 4 september 2026* |
 
 ## Registreren
 

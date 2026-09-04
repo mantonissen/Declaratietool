@@ -223,6 +223,7 @@ export default async function KlantPagina({
             <select name="facturatiemodel" defaultValue="nacalculatie" className="veld">
               <option value="nacalculatie">Nacalculatie — uren × tarief</option>
               <option value="vaste_prijs">Vaste prijs — in termijnen</option>
+              <option value="abonnement">Abonnement — daarna instellen op het project</option>
             </select>
           </label>
           <label className="flex flex-col gap-2">

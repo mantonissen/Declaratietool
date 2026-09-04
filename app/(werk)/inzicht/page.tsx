@@ -198,7 +198,7 @@ export default async function InzichtPagina({
                   <td className="px-3 py-2">
                     <span className="block font-medium">
                       {r.project}
-                      {r.facturatiemodel === "vaste_prijs" && <span className="label ml-2 rounded bg-accent-bg px-1 py-0.5 text-accent-ink">vaste prijs</span>}
+                      {r.facturatiemodel !== "nacalculatie" && <span className="label ml-2 rounded bg-accent-bg px-1 py-0.5 text-accent-ink">{r.facturatiemodel === "abonnement" ? "abonnement" : "vaste prijs"}</span>}
                     </span>
                     <span className="block text-xs text-muted">
                       {r.klant}
@@ -211,7 +211,7 @@ export default async function InzichtPagina({
                   <td className="px-3 py-2"><Meter pct={r.budgetVerbruiktPct} /></td>
                   {geld && <td className="cijfers px-3 py-2 text-right">{euro(r.omzet)}</td>}
                   {geld && <td className="cijfers px-3 py-2 text-right">{r.effectiefUurtarief === null ? "—" : euro(r.effectiefUurtarief)}</td>}
-                  {kosten && <td className="cijfers px-3 py-2 text-right font-semibold">{r.omzet === null || r.kosten === null ? "—" : euro(r.omzet - r.kosten)}</td>}
+                  {kosten && <td className="cijfers px-3 py-2 text-right font-semibold">{r.omzet === null ? "—" : euro(r.omzet - (r.kosten ?? 0))}</td>}
                 </tr>
               ))}
               {projecten.length === 0 && <tr><td colSpan={6} className="px-3 py-5 text-center text-muted">Geen uren in deze periode.</td></tr>}
@@ -234,7 +234,7 @@ export default async function InzichtPagina({
                     <td className="cijfers px-3 py-2 text-right">{minutenAlsTijd(r.minuten)}</td>
                     <td className="cijfers px-3 py-2 text-right">{getal(r.km, 0)}</td>
                     {geld && <td className="cijfers px-3 py-2 text-right">{euro(r.omzet)}</td>}
-                    {kosten && <td className="cijfers px-3 py-2 text-right font-semibold">{r.omzet === null || r.kosten === null ? "—" : euro(r.omzet - r.kosten)}</td>}
+                    {kosten && <td className="cijfers px-3 py-2 text-right font-semibold">{r.omzet === null ? "—" : euro(r.omzet - (r.kosten ?? 0))}</td>}
                   </tr>
                 ))}
                 {klanten.length === 0 && <tr><td colSpan={5} className="px-3 py-5 text-center text-muted">Geen uren in deze periode.</td></tr>}
@@ -257,7 +257,7 @@ export default async function InzichtPagina({
                       <td className="cijfers px-3 py-2 text-right">{minutenAlsTijd(r.minuten)}</td>
                       <td className="cijfers px-3 py-2 text-right">{d === null ? "—" : `${getal(d, 0)}%`}</td>
                       {geld && <td className="cijfers px-3 py-2 text-right">{euro(r.omzet)}</td>}
-                      {kosten && <td className="cijfers px-3 py-2 text-right font-semibold">{r.omzet === null || r.kosten === null ? "—" : euro(r.omzet - r.kosten)}</td>}
+                      {kosten && <td className="cijfers px-3 py-2 text-right font-semibold">{r.omzet === null ? "—" : euro(r.omzet - (r.kosten ?? 0))}</td>}
                     </tr>
                   );
                 })}

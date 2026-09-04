@@ -125,7 +125,7 @@ export type ProjectRij = {
   besteedTotaal: number;         // uren, over de hele looptijd
   budgetVerbruiktPct: number | null;
   effectiefUurtarief: number | null;
-  facturatiemodel: "nacalculatie" | "vaste_prijs";
+  facturatiemodel: "nacalculatie" | "vaste_prijs" | "abonnement";
   vastePrijs: number | null;
   termijnGefactureerd: number | null;   // in de periode
   termijnOpen: number | null;           // nog te factureren, hele looptijd
