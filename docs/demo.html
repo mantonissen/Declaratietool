@@ -1,0 +1,780 @@
+<title>Declaratietool Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+  :root {
+    --paper:#f2f4f0; --surface:#ffffff; --surface-2:#e8ebe5;
+    --ink:#111716; --ink-2:#3b4441; --muted:#6c7873;
+    --line:#d5dad2; --line-2:#b6bdb4;
+    --accent:#0b6b4f; --accent-ink:#075139; --accent-bg:#e0efe8; --accent-fg:#ffffff;
+    --warn:#8a5a0b; --warn-bg:#f6eddb; --danger:#9a2f2f;
+    --f-sans:"Archivo",ui-sans-serif,system-ui,sans-serif;
+    --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:#0d1211; --surface:#151b19; --surface-2:#1c2321;
+      --ink:#e7edea; --ink-2:#b5c0bb; --muted:#86928d;
+      --line:#28302e; --line-2:#3a4441;
+      --accent:#4ec69a; --accent-ink:#a6e7cc; --accent-bg:#10281f; --accent-fg:#06231a;
+      --warn:#d6a44a; --warn-bg:#2a2214; --danger:#e08585;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper:#0d1211; --surface:#151b19; --surface-2:#1c2321;
+    --ink:#e7edea; --ink-2:#b5c0bb; --muted:#86928d;
+    --line:#28302e; --line-2:#3a4441;
+    --accent:#4ec69a; --accent-ink:#a6e7cc; --accent-bg:#10281f; --accent-fg:#06231a;
+    --warn:#d6a44a; --warn-bg:#2a2214; --danger:#e08585;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink); font-family:var(--f-sans); font-size:15px; line-height:1.45; -webkit-font-smoothing:antialiased; }
+  h1,h2,h3 { margin:0; line-height:1.15; text-wrap:balance; }
+  p { margin:0; }
+  button, input, select { font:inherit; color:inherit; }
+  a { color:var(--accent-ink); }
+
+  .cijfers { font-family:var(--f-mono); font-variant-numeric:tabular-nums; }
+  .label { font-family:var(--f-mono); font-size:.6875rem; font-weight:500; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); }
+  .kaart { background:var(--surface); border:1px solid var(--line); border-radius:4px; }
+  .veld { background:var(--surface); border:1px solid var(--line-2); border-radius:3px; padding:.6rem .75rem; font-size:16px; width:100%; min-height:44px; color:var(--ink); }
+  .veld:focus-visible { outline:2px solid var(--accent); outline-offset:-1px; }
+  .knop { display:inline-flex; align-items:center; justify-content:center; gap:.5rem; min-height:44px; padding:0 1rem; border-radius:3px; font-weight:600; font-size:.9375rem; border:1px solid transparent; cursor:pointer; white-space:nowrap; background:none; }
+  .knop:disabled { opacity:.5; cursor:default; }
+  .knop:focus-visible { outline:2px solid var(--accent-ink); outline-offset:2px; }
+  .knop-primair { background:var(--accent); color:var(--accent-fg); border-color:var(--accent); }
+  .knop-stil { background:var(--surface); border-color:var(--line-2); }
+  .knop-stil:hover:not(:disabled) { background:var(--surface-2); }
+  .knop-kaal { color:var(--accent-ink); min-height:36px; padding:0 .5rem; }
+  .knop-klein { min-height:36px; padding:0 .625rem; font-size:.875rem; }
+
+  /* ---- demobalk ---- */
+  .demobalk { position:sticky; top:0; z-index:40; background:var(--ink); color:var(--paper); }
+  .demobalk-inner { max-width:1200px; margin:0 auto; padding:.5rem 1rem; display:flex; flex-wrap:wrap; align-items:center; gap:.5rem 1rem; }
+  .demobalk .tag { font-family:var(--f-mono); font-size:.6875rem; letter-spacing:.1em; text-transform:uppercase; background:var(--accent); color:var(--accent-fg); padding:2px 6px; border-radius:2px; }
+  .demobalk p { font-size:.8125rem; opacity:.85; flex:1 1 200px; }
+  .rolkeuze { display:flex; gap:2px; background:rgba(255,255,255,.12); border-radius:3px; padding:2px; }
+  .rolkeuze button { border:0; background:none; color:var(--paper); font-size:.8125rem; padding:.35rem .6rem; border-radius:2px; cursor:pointer; opacity:.75; }
+  .rolkeuze button[aria-pressed="true"] { background:var(--paper); color:var(--ink); opacity:1; font-weight:600; }
+  .sync { font-family:var(--f-mono); font-size:.6875rem; opacity:.7; display:flex; align-items:center; gap:6px; }
+  .sync i { width:7px; height:7px; border-radius:50%; background:var(--line-2); display:inline-block; }
+  .sync i.live { background:var(--accent); }
+  @media (max-width: 640px) {
+    .demobalk p { display:none; }
+    .demobalk-inner { padding:.4rem .75rem; gap:.5rem; }
+    .rolkeuze { margin-left:auto; }
+  }
+
+  /* ---- schil ---- */
+  .schil { min-height:calc(100dvh - 44px); }
+  .zijbalk { display:none; }
+  .inhoud { min-width:0; padding-bottom:84px; }
+  .onderbalk { position:fixed; inset-inline:0; bottom:0; z-index:30; border-top:1px solid var(--line); background:var(--surface); padding-bottom:env(safe-area-inset-bottom); }
+  .onderbalk ul { list-style:none; margin:0; padding:0; display:grid; grid-auto-flow:column; grid-auto-columns:1fr; }
+  .onderbalk button { width:100%; border:0; background:none; min-height:56px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; font-size:.6875rem; font-weight:500; color:var(--muted); cursor:pointer; }
+  .onderbalk button[aria-current="page"] { color:var(--accent-ink); }
+  .onderbalk svg, .zijbalk svg { width:20px; height:20px; }
+
+  @media (min-width: 768px) {
+    .schil { display:flex; }
+    .onderbalk { display:none; }
+    .inhoud { flex:1; padding-bottom:0; }
+    .zijbalk { display:flex; flex-direction:column; width:224px; flex-shrink:0; border-right:1px solid var(--line); background:var(--surface); }
+    .zijbalk-kop { border-bottom:1px solid var(--line); padding:1rem 1.25rem; }
+    .zijbalk nav { display:flex; flex-direction:column; gap:2px; padding:.5rem; }
+    .zijbalk nav button { display:flex; align-items:center; gap:.75rem; border:0; background:none; text-align:left; padding:.5rem .75rem; border-radius:4px; font-size:.875rem; font-weight:500; color:var(--ink-2); cursor:pointer; }
+    .zijbalk nav button:hover { background:var(--surface-2); }
+    .zijbalk nav button[aria-current="page"] { background:var(--accent-bg); color:var(--accent-ink); }
+  }
+
+  .pagina { max-width:1120px; margin:0 auto; padding:1.25rem 1rem; }
+  @media (min-width:768px) { .pagina { padding:2rem; } }
+  .smal { max-width:760px; }
+
+  .kop { display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:1rem; margin-bottom:1.25rem; }
+  .kop h1 { font-size:1.5rem; font-weight:700; letter-spacing:-.02em; margin-top:.25rem; }
+  @media (min-width:768px) { .kop h1 { font-size:1.875rem; } }
+  .weeknav { display:flex; gap:4px; }
+  .weeknav .knop { padding:0 .75rem; }
+
+  .totalen { display:flex; flex-wrap:wrap; gap:.5rem 2rem; border-block:1px solid var(--line); padding:.75rem 0; margin-bottom:1.25rem; align-items:center; }
+  .totalen b { display:block; font-size:1.25rem; font-weight:600; }
+  .melding { border:1px solid var(--line); background:var(--surface-2); border-radius:3px; padding:.4rem .75rem; font-size:.875rem; }
+  .melding-warn { border-color:var(--warn); background:var(--warn-bg); }
+  .melding-ok { border-color:var(--accent); background:var(--accent-bg); }
+
+  /* dagkaarten */
+  .dagen { display:flex; flex-direction:column; gap:.75rem; }
+  .dag { overflow:hidden; }
+  .dag.vandaag { border-color:var(--accent); }
+  .dag header { display:flex; align-items:baseline; gap:.5rem; border-bottom:1px solid var(--line); padding:.6rem 1rem; background:var(--surface-2); }
+  .dag.vandaag header { background:var(--accent-bg); }
+  .dag header h3 { font-size:.875rem; font-weight:600; text-transform:capitalize; }
+  .dag header small { font-size:.75rem; color:var(--muted); }
+  .dag header .som { margin-left:auto; font-weight:600; font-size:.875rem; }
+  .dag ul { list-style:none; margin:0; padding:0; }
+  .dag li { display:flex; align-items:flex-start; gap:.75rem; padding:.75rem 1rem; border-bottom:1px solid var(--line); }
+  .dag li:last-child { border-bottom:0; }
+  .dag li .naam { font-size:.875rem; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .dag li .sub { font-size:.75rem; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .dag li .oms { font-size:.75rem; color:var(--ink-2); margin-top:2px; }
+  .dag li .min { flex:1; min-width:0; }
+  .dag li .tijd { font-weight:600; font-size:.875rem; flex-shrink:0; }
+  .dag li .leeg { color:var(--muted); font-size:.875rem; }
+  .dag .voet { border-top:1px solid var(--line); padding:.5rem; }
+  .dag .voet .knop { width:100%; }
+  .x { border:0; background:none; color:var(--muted); cursor:pointer; padding:4px; min-height:0; }
+  .x:hover { color:var(--danger); }
+
+  /* weekraster */
+  .tabel-omhulsel { overflow-x:auto; border:1px solid var(--line); border-radius:4px; background:var(--surface); }
+  table { border-collapse:collapse; width:100%; font-size:.875rem; }
+  th, td { padding:.5rem .75rem; text-align:left; border-bottom:1px solid var(--line); }
+  thead th { background:var(--surface-2); }
+  tbody tr:last-child td, tbody tr:last-child th { border-bottom:0; }
+  .raster th.rij { min-width:240px; position:sticky; left:0; background:var(--surface); border-right:1px solid var(--line); font-weight:400; z-index:1; }
+  .raster thead th.rij { background:var(--surface-2); }
+  .raster th.rij b { display:block; font-size:.8125rem; font-weight:600; }
+  .raster th.rij small { display:block; font-size:.75rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .raster th.dag { text-align:center; width:80px; }
+  .raster th.dag small { display:block; font-weight:400; letter-spacing:0; text-transform:none; font-size:.625rem; }
+  .raster td.cel { padding:0; border-left:1px solid var(--line); }
+  .raster td.cel input { width:100%; height:44px; border:0; background:transparent; text-align:center; font-size:.875rem; color:var(--ink); }
+  .raster td.cel input::placeholder { color:var(--line-2); }
+  .raster td.cel input:focus { background:var(--accent-bg); outline:2px solid var(--accent); outline-offset:-2px; }
+  .raster td.cel input:disabled { color:var(--muted); }
+  .raster .wk { background:color-mix(in srgb, var(--surface-2) 50%, transparent); }
+  .raster td.som, .raster tfoot td { font-weight:600; text-align:right; border-left:1px solid var(--line); }
+  .raster tfoot tr { background:var(--surface-2); border-top:2px solid var(--line-2); }
+  .raster tfoot td.c { text-align:center; }
+  .rasterbalk { display:flex; flex-wrap:wrap; align-items:center; gap:.75rem; margin-top:1rem; }
+  .rasterbalk .veld { max-width:420px; }
+  .rasterbalk .rechts { margin-left:auto; display:flex; align-items:center; gap:.75rem; }
+  .desktop-alleen { display:none; }
+  @media (min-width:768px) { .desktop-alleen { display:block; } .mobiel-alleen { display:none; } }
+
+  /* formulieren */
+  .form { display:flex; flex-direction:column; gap:1rem; padding:1rem; }
+  .form h2 { font-size:1.125rem; font-weight:600; }
+  .grid2 { display:grid; gap:1rem; }
+  @media (min-width:640px) { .grid2 { grid-template-columns:1fr 1fr; } }
+  .form label { display:flex; flex-direction:column; gap:.4rem; }
+  .form .rij { flex-direction:row; align-items:center; gap:.75rem; font-size:.875rem; }
+  .form input[type=checkbox] { width:20px; height:20px; accent-color:var(--accent); }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; }
+  .hulp { font-size:.75rem; color:var(--muted); }
+
+  /* onderblad (mobiel formulier) */
+  .blad { position:fixed; inset:0; z-index:50; display:none; }
+  .blad[open] { display:block; }
+  .blad .achter { position:absolute; inset:0; background:rgba(0,0,0,.45); }
+  .blad .paneel { position:absolute; inset-inline:0; bottom:0; max-height:92dvh; overflow:auto; background:var(--paper); border-radius:12px 12px 0 0; padding-bottom:env(safe-area-inset-bottom); }
+  @media (min-width:768px) { .blad .paneel { inset:auto; top:50%; left:50%; transform:translate(-50%,-50%); width:min(560px, 92vw); border-radius:6px; max-height:88vh; } }
+  .blad .paneel .form { padding:1.25rem 1rem 1.5rem; }
+  .blad .greep { width:40px; height:4px; border-radius:2px; background:var(--line-2); margin:.6rem auto 0; }
+  @media (min-width:768px) { .blad .greep { display:none; } }
+
+  /* lijstjes */
+  .lijst { list-style:none; margin:0 0 1.5rem; padding:0; display:flex; flex-direction:column; gap:.5rem; }
+  .lijst li { display:flex; align-items:flex-start; gap:.75rem; padding:.75rem 1rem; }
+  .lijst .min { flex:1; min-width:0; }
+  .lijst .naam { font-size:.875rem; font-weight:500; }
+  .lijst .sub { font-size:.75rem; color:var(--muted); }
+  .lijst .oms { font-size:.75rem; color:var(--ink-2); margin-top:2px; }
+  .lijst .r { text-align:right; flex-shrink:0; }
+  .lijst .r b { display:block; font-size:.875rem; }
+  .lijst .r small { font-size:.75rem; color:var(--muted); }
+
+  .tegels { display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--line); border:1px solid var(--line); border-radius:4px; overflow:hidden; margin-bottom:1.5rem; }
+  @media (min-width:640px) { .tegels { grid-template-columns:repeat(4,1fr); } }
+  .tegels div { background:var(--surface); padding:.75rem 1rem; }
+  .tegels b { display:block; font-size:1.125rem; font-weight:600; margin-top:2px; }
+
+  .status { border:1px solid var(--line); background:var(--surface); border-radius:4px; padding:.75rem 1rem; margin-bottom:1.25rem; }
+  .status.ok { border-color:var(--accent); background:var(--accent-bg); }
+  .status.warn { border-color:var(--warn); background:var(--warn-bg); }
+  .status b { display:block; margin-top:2px; }
+
+  .link { color:var(--accent-ink); font-weight:500; text-decoration:none; background:none; border:0; padding:0; cursor:pointer; font-size:inherit; }
+  .link:hover { text-decoration:underline; }
+  .rechts { text-align:right; }
+  .warntekst { color:var(--warn); }
+  .uitleg { font-size:.875rem; color:var(--muted); margin:.25rem 0 1.25rem; max-width:64ch; }
+  .sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
+  @media (prefers-reduced-motion:reduce) { * { transition:none!important; animation:none!important; } }
+</style>
+
+<div class="demobalk">
+  <div class="demobalk-inner">
+    <span class="tag">Demo</span>
+    <p>Dezelfde schermen en voorbeeldgegevens als de app. Wissel van rol om te zien wat elk van hen te zien krijgt.</p>
+    <div class="rolkeuze" role="group" aria-label="Rol" id="rolkeuze"></div>
+    <span class="sync"><i id="sync-dot"></i><span id="sync-txt">lokaal</span></span>
+  </div>
+</div>
+
+<div class="schil">
+  <aside class="zijbalk">
+    <div class="zijbalk-kop">
+      <p class="label">Declaratietool</p>
+      <p style="margin-top:4px;font-weight:600;font-size:.875rem" id="zb-naam"></p>
+      <p style="font-size:.75rem;color:var(--muted)" id="zb-rol"></p>
+    </div>
+    <nav id="zb-nav"></nav>
+  </aside>
+  <main class="inhoud" id="inhoud"></main>
+  <nav class="onderbalk" aria-label="Hoofdnavigatie"><ul id="ob-nav"></ul></nav>
+</div>
+
+<div class="blad" id="blad">
+  <div class="achter" data-sluit></div>
+  <div class="paneel" role="dialog" aria-modal="true" aria-labelledby="blad-titel">
+    <div class="greep"></div>
+    <div id="blad-inhoud"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------ data ---- */
+
+  const FUNCTIES = { partner: "Partner", senior: "Senior adviseur", adviseur: "Adviseur" };
+
+  const MEDEWERKERS = {
+    martijn: { id: "martijn", naam: "Martijn Antonissen", functie: "partner", rechten: "eigenaar", standplaats: "Breda", kostprijs: 95 },
+    sam:     { id: "sam",     naam: "Sam de Vries",       functie: "senior",  rechten: "projectleider", standplaats: "Breda", kostprijs: 74 },
+    petra:   { id: "petra",   naam: "Petra Jansen",       functie: "adviseur",rechten: "medewerker", standplaats: "Utrecht", kostprijs: 58 },
+  };
+
+  const KLANTEN = {
+    zwo: { id: "zwo", naam: "Gemeente Zwolle",        code: "ZWO", plaats: "Zwolle",    afstand: 82.5, afstandPer: { petra: 96 } },
+    wsr: { id: "wsr", naam: "Waterschap Rivierenland",code: "WSR", plaats: "Tiel",      afstand: 46.0, afstandPer: {} },
+    mer: { id: "mer", naam: "Bouwgroep Meridiaan",    code: "MER", plaats: "Eindhoven", afstand: 61.5, afstandPer: {} },
+  };
+
+  const PROJECTEN = {
+    p1: { id: "p1", klant: "zwo", naam: "Herinrichting stationsgebied", code: "ZWO-01", leider: "sam",     budgetUren: 420 },
+    p2: { id: "p2", klant: "wsr", naam: "Dijkversterking traject 4",    code: "WSR-02", leider: "sam",     budgetUren: 260 },
+    p3: { id: "p3", klant: "mer", naam: "Vergunningtraject Kanaalzone", code: "MER-01", leider: "martijn", budgetUren: 120 },
+  };
+
+  const ONDERDELEN = {
+    o1: { id: "o1", project: "p1", naam: "Inventarisatie",             declarabel: true,  budget: 80 },
+    o2: { id: "o2", project: "p1", naam: "Ontwerp",                    declarabel: true,  budget: 200 },
+    o3: { id: "o3", project: "p1", naam: "Participatieavonden",        declarabel: true,  budget: 60, tarief: 165 },
+    o4: { id: "o4", project: "p1", naam: "Intern overleg",             declarabel: false, budget: null },
+    o5: { id: "o5", project: "p2", naam: "Veldwerk",                   declarabel: true,  budget: 120 },
+    o6: { id: "o6", project: "p2", naam: "Rapportage",                 declarabel: true,  budget: 90 },
+    o7: { id: "o7", project: "p3", naam: "Vooroverleg bevoegd gezag",  declarabel: true,  budget: 40 },
+    o8: { id: "o8", project: "p3", naam: "Aanvraag opstellen",         declarabel: true,  budget: 70 },
+  };
+
+  // Tariefkaart klant x functie (niveau 5 van de zoekvolgorde).
+  const TARIEVEN = {
+    zwo: { partner: 185, senior: 155, adviseur: 128 },
+    wsr: { senior: 148, adviseur: 122 },
+    mer: { partner: 195, adviseur: 135 },
+  };
+  const KM_TARIEF = 0.23;
+
+  const DOELEN = { klantbezoek: "Klantbezoek", locatiebezoek: "Locatiebezoek", overleg: "Overleg", opleiding: "Opleiding", overig: "Overig" };
+
+  /* ----------------------------------------------------------- datum ---- */
+
+  const DAGEN = ["maandag","dinsdag","woensdag","donderdag","vrijdag","zaterdag","zondag"];
+  const DAGEN_K = ["ma","di","wo","do","vr","za","zo"];
+  const MAANDEN = ["januari","februari","maart","april","mei","juni","juli","augustus","september","oktober","november","december"];
+
+  const d2 = (n) => String(n).padStart(2, "0");
+  function vandaag() { const t = new Date(); return `${t.getFullYear()}-${d2(t.getMonth()+1)}-${d2(t.getDate())}`; }
+  function naarDate(s) { return new Date(s + "T00:00:00Z"); }
+  function naarTekst(d) { return d.toISOString().slice(0, 10); }
+  function verschuif(s, n) { const d = naarDate(s); d.setUTCDate(d.getUTCDate() + n); return naarTekst(d); }
+  function dagIndex(s) { return (naarDate(s).getUTCDay() + 6) % 7; }
+  function maandagVan(s) { return verschuif(s, -dagIndex(s)); }
+  function weekDagen(m) { return Array.from({ length: 7 }, (_, i) => verschuif(m, i)); }
+  function isoWeek(s) {
+    const t = naarDate(s); t.setUTCDate(t.getUTCDate() - dagIndex(s) + 3);
+    const jaar = t.getUTCFullYear();
+    const e = new Date(Date.UTC(jaar, 0, 4)); e.setUTCDate(e.getUTCDate() - ((e.getUTCDay()+6)%7) + 3);
+    return { jaar, week: 1 + Math.round((t - e) / 6048e5) };
+  }
+  function korteDatum(s) { const d = naarDate(s); return `${d.getUTCDate()} ${MAANDEN[d.getUTCMonth()]}`; }
+  function tijd(m) { const s = m < 0 ? "-" : ""; m = Math.abs(m); return `${s}${Math.floor(m/60)}:${d2(m%60)}`; }
+  function leesMinuten(inv) {
+    const t = String(inv).trim().toLowerCase().replace(",", ".");
+    if (!t) return null;
+    let m = null, r;
+    if ((r = t.match(/^(\d+)\s*[:u]\s*(\d{1,2})$/))) { if (+r[2] > 59) return null; m = +r[1]*60 + +r[2]; }
+    else if ((r = t.match(/^(\d+)\s*m$/))) m = +r[1];
+    else if ((r = t.match(/^(\d+(?:\.\d+)?)\s*u?$/))) m = Math.round(+r[1]*60);
+    if (m === null || m < 0) return null;
+    return Math.round(m / 15) * 15;
+  }
+  const euro = (n) => n == null ? "—" : new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR" }).format(n);
+  const getal = (n, d = 1) => n == null ? "—" : new Intl.NumberFormat("nl-NL", { minimumFractionDigits: d, maximumFractionDigits: d }).format(n);
+
+  /* ----------------------------------------------------------- staat ---- */
+
+  const SEED_VERSIE = 1;
+  let staat = null;   // { versie, uren:[], ritten:[], weekstaten:{} }
+  let rol = "petra";
+  let scherm = "uren";
+  let maandag = maandagVan(vandaag());
+  let db = null;
+  let schrijfTimer = null;
+
+  function uid() { return Math.random().toString(36).slice(2, 10); }
+
+  function seed() {
+    const m = maandagVan(vandaag());
+    const u = (mw, o, dag, min, oms, status) => ({ id: uid(), mw, onderdeel: o, datum: verschuif(m, dag), minuten: min, oms, status });
+    const r = (mw, k, p, dag, doel, oms, status) => ({ id: uid(), mw, klant: k, project: p, datum: verschuif(m, dag), doel, afstand: afstandVoor(k, mw), retour: true, oms, status });
+    const vw = isoWeek(verschuif(m, -7));
+    return {
+      versie: SEED_VERSIE,
+      uren: [
+        u("petra","o1",-7,480,"Veldbezoek en inventarisatie","goedgekeurd"),
+        u("petra","o2",-6,450,"Schetsontwerp uitgewerkt","goedgekeurd"),
+        u("petra","o2",-5,480,"Varianten doorgerekend","goedgekeurd"),
+        u("petra","o4",-5,60,"Weekstart","goedgekeurd"),
+        u("petra","o3",-4,240,"Participatieavond wijk noord","goedgekeurd"),
+        u("petra","o6",-3,360,"Conceptrapport","goedgekeurd"),
+        u("petra","o2",0,390,"Definitief ontwerp","concept"),
+        u("petra","o4",0,45,"Weekstart","concept"),
+        u("petra","o2",1,480,"Detaillering plein","concept"),
+        u("petra","o5",2,300,"Veldwerk dijkvak 4b","concept"),
+        u("petra","o6",2,120,"Meetgegevens verwerkt","concept"),
+        u("petra","o3",3,195,"Voorbereiding avond wijk zuid","concept"),
+        u("sam","o2",0,240,"Toetsing ontwerp","concept"),
+        u("sam","o7",1,180,"Vooroverleg gemeente","concept"),
+        u("martijn","o7",0,120,"Kennismaking bevoegd gezag","concept"),
+        u("martijn","o8",2,210,"Opzet aanvraag","concept"),
+      ],
+      ritten: [
+        r("petra","zwo","p1",-7,"klantbezoek","Startoverleg op locatie","goedgekeurd"),
+        r("petra","zwo","p1",-4,"locatiebezoek","Participatieavond","goedgekeurd"),
+        r("petra","wsr","p2",2,"locatiebezoek","Veldwerk dijkvak 4b","concept"),
+        r("martijn","mer","p3",0,"klantbezoek","Kennismaking","concept"),
+      ],
+      weekstaten: { [`petra|${vw.jaar}-${vw.week}`]: "goedgekeurd" },
+    };
+  }
+
+  function afstandVoor(k, mw) { const kl = KLANTEN[k]; return kl.afstandPer[mw] ?? kl.afstand; }
+
+  // Tariefzoekvolgorde, verkort tot de niveaus die in deze demo voorkomen:
+  // onderdeel (2) > klant x functie (5).
+  function tariefVoor(onderdeelId, mw) {
+    const o = ONDERDELEN[onderdeelId]; if (!o) return null;
+    if (o.tarief) return o.tarief;
+    const k = PROJECTEN[o.project].klant;
+    return (TARIEVEN[k] || {})[MEDEWERKERS[mw].functie] ?? null;
+  }
+
+  function weekSleutel(mw, m) { const w = isoWeek(m); return `${mw}|${w.jaar}-${w.week}`; }
+  function weekStatus(mw, m) { return staat.weekstaten[weekSleutel(mw, m)] || "concept"; }
+
+  /* ----------------------------------------------------------- opslag ---- */
+
+  function localLoad() {
+    try { const r = localStorage.getItem("declaratietool-demo"); if (r) { const s = JSON.parse(r); if (s && s.versie === SEED_VERSIE) return s; } } catch (e) {}
+    return null;
+  }
+  function localSave() { try { localStorage.setItem("declaratietool-demo", JSON.stringify(staat)); } catch (e) {} }
+  function bewaar() {
+    localSave();
+    if (!db) return;
+    clearTimeout(schrijfTimer);
+    schrijfTimer = setTimeout(() => {
+      db.doc("demo/staat").set(staat).catch(() => setSync(false, "niet gesynchroniseerd"));
+    }, 250);
+  }
+  function setSync(live, t) { document.getElementById("sync-dot").classList.toggle("live", !!live); document.getElementById("sync-txt").textContent = t; }
+
+  /* --------------------------------------------------------- weergave ---- */
+
+  const el = (t, c, txt) => { const n = document.createElement(t); if (c) n.className = c; if (txt != null) n.textContent = txt; return n; };
+  const h = (html) => { const t = document.createElement("template"); t.innerHTML = html.trim(); return t.content.firstElementChild; };
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+
+  const ICONEN = {
+    uren: "M12 7v5l3 2M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z",
+    ritten: "M5 21 8 3M19 21 16 3M12 5v3M12 11v3M12 17v3",
+    week: "M4 8h16M4 5h16v15H4zM8 3v4M16 3v4",
+    beheer: "M5 6h14M5 12h14M5 18h14M9 4v4M15 10v4M9 16v4",
+  };
+  const icoon = (n) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${ICONEN[n]}"/></svg>`;
+
+  function ik() { return MEDEWERKERS[rol]; }
+  function magBeheren() { return ik().rechten !== "medewerker"; }
+  function zietOmzet() { return ik().rechten !== "medewerker"; }
+  function zietKosten() { return ik().rechten === "eigenaar"; }
+
+  // Wie ziet welke regels (keuze D2a): eigen, of van je projecten, of alles.
+  function zichtbareUren() {
+    const r = ik().rechten;
+    return staat.uren.filter((u) => u.status !== "vervallen" && (
+      u.mw === rol || r === "eigenaar" || (r === "projectleider" && PROJECTEN[ONDERDELEN[u.onderdeel].project].leider === rol)));
+  }
+
+  function renderNav() {
+    const items = [["uren","Uren"],["ritten","Ritten"],["week","Week"]];
+    if (magBeheren()) items.push(["beheer","Beheer"]);
+    const zb = document.getElementById("zb-nav"); zb.innerHTML = "";
+    const ob = document.getElementById("ob-nav"); ob.innerHTML = "";
+    for (const [k, l] of items) {
+      const b1 = h(`<button type="button">${icoon(k)}${esc(l)}</button>`);
+      if (scherm === k) b1.setAttribute("aria-current", "page");
+      b1.onclick = () => { scherm = k; render(); };
+      zb.appendChild(b1);
+      const li = el("li"); const b2 = h(`<button type="button">${icoon(k)}${esc(l)}</button>`);
+      if (scherm === k) b2.setAttribute("aria-current", "page");
+      b2.onclick = () => { scherm = k; render(); window.scrollTo(0, 0); };
+      li.appendChild(b2); ob.appendChild(li);
+    }
+    document.getElementById("zb-naam").textContent = ik().naam;
+    document.getElementById("zb-rol").textContent = ik().rechten;
+  }
+
+  function renderRolkeuze() {
+    const r = document.getElementById("rolkeuze"); r.innerHTML = "";
+    for (const m of Object.values(MEDEWERKERS)) {
+      const b = el("button", null, m.naam.split(" ")[0]);
+      b.type = "button"; b.title = `${m.naam} · ${m.rechten}`;
+      b.setAttribute("aria-pressed", String(m.id === rol));
+      b.onclick = () => { rol = m.id; try { localStorage.setItem("declaratietool-demo-rol", rol); } catch (e) {} if (scherm === "beheer" && !magBeheren()) scherm = "uren"; render(); };
+      r.appendChild(b);
+    }
+  }
+
+  function weekKop(titel) {
+    const w = isoWeek(maandag); const dagen = weekDagen(maandag);
+    const k = h(`<header class="kop"><div><p class="label">Week ${w.week} · ${w.jaar}</p><h1>${esc(titel || `${korteDatum(maandag)} — ${korteDatum(dagen[6])}`)}</h1></div>
+      <div class="weeknav"><button type="button" class="knop knop-stil" aria-label="Vorige week">←</button><button type="button" class="knop knop-stil">Deze week</button><button type="button" class="knop knop-stil" aria-label="Volgende week">→</button></div></header>`);
+    const [a, b, c] = k.querySelectorAll("button");
+    a.onclick = () => { maandag = verschuif(maandag, -7); render(); };
+    b.onclick = () => { maandag = maandagVan(vandaag()); render(); };
+    c.onclick = () => { maandag = verschuif(maandag, 7); render(); };
+    return k;
+  }
+
+  /* ------------------------------------------------------------- uren ---- */
+
+  function renderUren(root) {
+    const dagen = weekDagen(maandag), zondag = dagen[6];
+    const eigen = staat.uren.filter((u) => u.mw === rol && u.status !== "vervallen" && u.datum >= maandag && u.datum <= zondag);
+    const status = weekStatus(rol, maandag);
+    const slot = status === "ingediend" || status === "goedgekeurd";
+    const totaal = eigen.reduce((s, u) => s + u.minuten, 0);
+    const decl = eigen.filter((u) => ONDERDELEN[u.onderdeel].declarabel).reduce((s, u) => s + u.minuten, 0);
+
+    root.appendChild(weekKop());
+    const tot = h(`<div class="totalen"><div><span class="label">Totaal</span><b class="cijfers">${tijd(totaal)}</b></div><div><span class="label">Declarabel</span><b class="cijfers">${tijd(decl)}</b></div></div>`);
+    if (slot) tot.appendChild(h(`<p class="melding">Deze week is <strong>${status}</strong> en staat op slot. <button type="button" class="link">Bekijk de weekstaat</button></p>`)).querySelector("button").onclick = () => { scherm = "week"; render(); };
+    if (status === "afgekeurd") tot.appendChild(h(`<p class="melding melding-warn">Teruggestuurd — pas aan en dien opnieuw in.</p>`));
+    root.appendChild(tot);
+
+    // Mobiel: per dag.
+    const dagLijst = el("div", "dagen mobiel-alleen");
+    const nu = vandaag();
+    for (const d of dagen) {
+      const regels = eigen.filter((u) => u.datum === d);
+      const isV = d === nu;
+      if (!regels.length && dagIndex(d) >= 5 && !isV) continue;
+      const som = regels.reduce((s, u) => s + u.minuten, 0);
+      const kaart = h(`<section class="kaart dag ${isV ? "vandaag" : ""}"><header><h3>${DAGEN[dagIndex(d)]}</h3><small>${korteDatum(d)}</small>${isV ? '<span class="label" style="color:var(--accent-ink)">vandaag</span>' : ""}<span class="cijfers som">${som ? tijd(som) : "—"}</span></header><ul></ul></section>`);
+      const ul = kaart.querySelector("ul");
+      for (const u of regels) {
+        const o = ONDERDELEN[u.onderdeel], p = PROJECTEN[o.project];
+        const li = h(`<li><div class="min"><p class="naam">${esc(o.naam)}</p><p class="sub">${esc(KLANTEN[p.klant].naam)} · ${esc(p.naam)}</p>${u.oms ? `<p class="oms">${esc(u.oms)}</p>` : ""}${o.declarabel ? "" : '<span class="label">niet declarabel</span>'}</div><span class="cijfers tijd">${tijd(u.minuten)}</span></li>`);
+        if (!slot && u.status === "concept") {
+          const x = h(`<button type="button" class="x" aria-label="Verwijderen"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>`);
+          x.onclick = () => { staat.uren = staat.uren.filter((r) => r.id !== u.id); bewaar(); render(); };
+          li.appendChild(x);
+        }
+        ul.appendChild(li);
+      }
+      if (!regels.length) ul.appendChild(h(`<li><span class="leeg">Niets geschreven.</span></li>`));
+      if (!slot) {
+        const voet = h(`<div class="voet"><button type="button" class="knop knop-kaal">+ Uren toevoegen</button></div>`);
+        voet.querySelector("button").onclick = () => openUrenBlad(d);
+        kaart.appendChild(voet);
+      }
+      dagLijst.appendChild(kaart);
+    }
+    root.appendChild(dagLijst);
+
+    // Desktop: weekraster.
+    root.appendChild(renderRaster(dagen, eigen, slot));
+  }
+
+  function renderRaster(dagen, eigen, slot) {
+    const wrap = el("div", "desktop-alleen");
+    const begin = {}; const rijen = [];
+    for (const u of eigen) { const k = `${u.onderdeel}|${u.datum}`; begin[k] = (begin[k] || 0) + u.minuten; if (!rijen.includes(u.onderdeel)) rijen.push(u.onderdeel); }
+    const stand = { ...begin };
+    const gewijzigd = () => Object.keys({ ...begin, ...stand }).filter((k) => (stand[k] || 0) !== (begin[k] || 0));
+
+    const bouw = () => {
+      wrap.innerHTML = "";
+      const t = h(`<div class="tabel-omhulsel"><table class="raster"><thead><tr><th class="rij label">Project en onderdeel</th></tr></thead><tbody></tbody><tfoot><tr><td class="label" style="text-align:left">Totaal</td></tr></tfoot></table></div>`);
+      const trh = t.querySelector("thead tr"), tb = t.querySelector("tbody"), trf = t.querySelector("tfoot tr");
+      for (const d of dagen) trh.appendChild(h(`<th class="dag label ${dagIndex(d) >= 5 ? "wk" : ""}">${DAGEN_K[dagIndex(d)]}<small>${naarDate(d).getUTCDate()}</small></th>`));
+      trh.appendChild(h(`<th class="label rechts" style="width:80px">Totaal</th>`));
+      let weekTot = 0; const dagTot = {};
+      for (const o of rijen) {
+        const od = ONDERDELEN[o], p = PROJECTEN[od.project];
+        const tr = h(`<tr><th class="rij"><b>${esc(od.naam)}</b><small>${esc(KLANTEN[p.klant].naam)} · ${esc(p.naam)}${od.declarabel ? "" : " · niet declarabel"}</small></th></tr>`);
+        let rijTot = 0;
+        for (const d of dagen) {
+          const k = `${o}|${d}`, w = stand[k] || 0; rijTot += w; dagTot[d] = (dagTot[d] || 0) + w;
+          const td = h(`<td class="cel ${dagIndex(d) >= 5 ? "wk" : ""}"><input type="text" inputmode="decimal" placeholder="—" aria-label="${esc(od.naam)} op ${d}" value="${w ? tijd(w) : ""}" ${slot ? "disabled" : ""}></td>`);
+          const inp = td.querySelector("input");
+          inp.oninput = () => { const m = inp.value.trim() === "" ? 0 : leesMinuten(inp.value); if (m !== null) { stand[k] = m; balk(); } };
+          inp.onblur = () => { const m = stand[k] || 0; inp.value = m ? tijd(m) : ""; herbereken(); };
+          tr.appendChild(td);
+        }
+        weekTot += rijTot;
+        tr.appendChild(h(`<td class="cijfers som">${rijTot ? tijd(rijTot) : "—"}</td>`));
+        tb.appendChild(tr);
+      }
+      if (!rijen.length) tb.appendChild(h(`<tr><td colspan="${dagen.length + 2}" style="text-align:center;color:var(--muted);padding:1.5rem">Nog geen regels deze week. Voeg hieronder een onderdeel toe.</td></tr>`));
+      for (const d of dagen) trf.appendChild(h(`<td class="cijfers c">${dagTot[d] ? tijd(dagTot[d]) : "—"}</td>`));
+      trf.appendChild(h(`<td class="cijfers">${tijd(weekTot)}</td>`));
+      wrap.appendChild(t);
+
+      if (!slot) {
+        const b = h(`<div class="rasterbalk"><select class="veld" aria-label="Onderdeel toevoegen"><option value="">Onderdeel toevoegen…</option></select><div class="rechts"><span class="hulp" id="wz"></span><button type="button" class="knop knop-primair" disabled>Opslaan</button></div></div>`);
+        const sel = b.querySelector("select");
+        for (const od of Object.values(ONDERDELEN)) if (!rijen.includes(od.id)) { const p = PROJECTEN[od.project]; sel.appendChild(h(`<option value="${od.id}">${esc(KLANTEN[p.klant].naam)} · ${esc(p.naam)} · ${esc(od.naam)}</option>`)); }
+        sel.onchange = () => { if (sel.value) { rijen.push(sel.value); bouw(); } };
+        b.querySelector("button").onclick = () => {
+          for (const k of gewijzigd()) {
+            const [o, d] = k.split("|"); const m = stand[k] || 0;
+            const bestaande = staat.uren.filter((u) => u.mw === rol && u.onderdeel === o && u.datum === d && u.status === "concept");
+            staat.uren = staat.uren.filter((u) => !bestaande.includes(u));
+            if (m > 0) staat.uren.push({ id: uid(), mw: rol, onderdeel: o, datum: d, minuten: m, oms: bestaande[0]?.oms || "", status: "concept" });
+          }
+          bewaar(); render();
+        };
+        wrap.appendChild(b);
+      }
+      balk();
+    };
+    const balk = () => { const n = gewijzigd().length; const w = wrap.querySelector("#wz"), k = wrap.querySelector(".rasterbalk .knop"); if (w) w.textContent = n ? `${n} ${n === 1 ? "wijziging" : "wijzigingen"}` : ""; if (k) k.disabled = !n; };
+    const herbereken = () => {
+      // Alleen de totalen bijwerken, zonder de invoervelden opnieuw te bouwen.
+      const tb = wrap.querySelectorAll("tbody tr"), tf = wrap.querySelectorAll("tfoot td");
+      let weekTot = 0; const dagTot = {};
+      rijen.forEach((o, i) => { let rt = 0; dagen.forEach((d) => { const w = stand[`${o}|${d}`] || 0; rt += w; dagTot[d] = (dagTot[d] || 0) + w; }); weekTot += rt; const s = tb[i] && tb[i].querySelector(".som"); if (s) s.textContent = rt ? tijd(rt) : "—"; });
+      dagen.forEach((d, i) => { if (tf[i + 1]) tf[i + 1].textContent = dagTot[d] ? tijd(dagTot[d]) : "—"; });
+      if (tf[dagen.length + 1]) tf[dagen.length + 1].textContent = tijd(weekTot);
+    };
+    bouw();
+    return wrap;
+  }
+
+  function openUrenBlad(datum) {
+    const recent = [...new Set(staat.uren.filter((u) => u.mw === rol).sort((a, b) => b.datum.localeCompare(a.datum)).map((u) => u.onderdeel))].slice(0, 6);
+    const opt = (o) => { const od = ONDERDELEN[o], p = PROJECTEN[od.project]; return `<option value="${o}">${esc(KLANTEN[p.klant].naam)} · ${esc(p.naam)} · ${esc(od.naam)}</option>`; };
+    const f = h(`<form class="form">
+      <div><h2 id="blad-titel">Uren toevoegen</h2><p class="hulp" style="text-transform:capitalize">${DAGEN[dagIndex(datum)]} ${korteDatum(datum)}</p></div>
+      <label><span class="label">Waaraan</span><select class="veld" name="onderdeel" required><option value="" disabled selected>Kies een projectonderdeel…</option>
+        ${recent.length ? `<optgroup label="Recent">${recent.map(opt).join("")}</optgroup>` : ""}
+        <optgroup label="Alle onderdelen">${Object.keys(ONDERDELEN).filter((o) => !recent.includes(o)).map(opt).join("")}</optgroup></select></label>
+      <label><span class="label">Hoelang</span><input class="veld cijfers" name="tijd" inputmode="decimal" autocomplete="off" placeholder="1:30" required style="font-size:1.125rem">
+        <div class="chips">${[15,30,60,90,120,240,480].map((m) => `<button type="button" class="knop knop-stil knop-klein cijfers" data-m="${m}">${tijd(m)}</button>`).join("")}</div>
+        <span class="hulp" data-hulp>1:30, 1,5 of 90m. Er wordt afgerond op kwartieren.</span></label>
+      <label><span class="label">Waarover <span style="text-transform:none;letter-spacing:0">(optioneel)</span></span><input class="veld" name="oms" maxlength="200" placeholder="Komt op de urenspecificatie voor de klant"></label>
+      <div style="display:flex;gap:.75rem"><button type="submit" class="knop knop-primair" style="flex:1">Opslaan</button><button type="button" class="knop knop-stil" data-sluit>Annuleren</button></div>
+    </form>`);
+    const tijdVeld = f.elements.tijd, hulp = f.querySelector("[data-hulp]");
+    f.querySelectorAll("[data-m]").forEach((b) => b.onclick = () => { tijdVeld.value = tijd(+b.dataset.m); tijdVeld.dispatchEvent(new Event("input")); });
+    tijdVeld.oninput = () => { const m = leesMinuten(tijdVeld.value); hulp.textContent = tijdVeld.value && m ? `Wordt ${tijd(m)} — afgerond op het kwartier.` : "1:30, 1,5 of 90m. Er wordt afgerond op kwartieren."; };
+    f.onsubmit = (e) => {
+      e.preventDefault();
+      const m = leesMinuten(tijdVeld.value);
+      if (!f.elements.onderdeel.value) { f.elements.onderdeel.focus(); return; }
+      if (!m) { hulp.textContent = "Vul een tijd in, bijvoorbeeld 1:30, 1,5 of 90m."; hulp.classList.add("warntekst"); return; }
+      staat.uren.push({ id: uid(), mw: rol, onderdeel: f.elements.onderdeel.value, datum, minuten: m, oms: f.elements.oms.value.trim(), status: "concept" });
+      bewaar(); sluitBlad(); render();
+    };
+    openBlad(f);
+  }
+
+  /* ----------------------------------------------------------- ritten ---- */
+
+  function renderRitten(root) {
+    const dagen = weekDagen(maandag), zondag = dagen[6];
+    const eigen = staat.ritten.filter((r) => r.mw === rol && r.status !== "vervallen" && r.datum >= maandag && r.datum <= zondag);
+    const status = weekStatus(rol, maandag); const slot = status === "ingediend" || status === "goedgekeurd";
+    const km = eigen.reduce((s, r) => s + r.afstand * (r.retour ? 2 : 1), 0);
+    const bez = eigen.filter((r) => r.doel === "klantbezoek" || r.doel === "locatiebezoek").length;
+
+    root.appendChild(weekKop("Ritten en bezoeken"));
+    root.appendChild(h(`<div class="totalen"><div><span class="label">Kilometers</span><b class="cijfers">${getal(km)}</b></div><div><span class="label">Bezoeken</span><b class="cijfers">${bez}</b></div>${zietOmzet() ? `<div><span class="label">Te declareren</span><b class="cijfers">${euro(km * KM_TARIEF)}</b></div>` : ""}</div>`));
+
+    if (eigen.length) {
+      const ul = el("ul", "lijst");
+      for (const r of eigen) {
+        const tot = r.afstand * (r.retour ? 2 : 1);
+        const li = h(`<li class="kaart"><div class="min"><p class="naam">${esc(KLANTEN[r.klant].naam)}</p><p class="sub">${korteDatum(r.datum)} · ${DOELEN[r.doel]} · ${r.retour ? "retour" : "enkele reis"}</p>${r.oms ? `<p class="oms">${esc(r.oms)}</p>` : ""}</div><div class="r"><b class="cijfers">${getal(tot)} km</b>${zietOmzet() ? `<small class="cijfers">${euro(tot * KM_TARIEF)}</small>` : ""}</div></li>`);
+        if (!slot && r.status === "concept") { const x = h(`<button type="button" class="x" aria-label="Verwijderen"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>`); x.onclick = () => { staat.ritten = staat.ritten.filter((q) => q.id !== r.id); bewaar(); render(); }; li.appendChild(x); }
+        ul.appendChild(li);
+      }
+      root.appendChild(ul);
+    } else root.appendChild(h(`<p class="uitleg">Deze week nog geen ritten.</p>`));
+
+    if (slot) { root.appendChild(h(`<p class="melding">Deze week is <strong>${status}</strong>; er kan niets bij.</p>`)); return; }
+
+    const std = dagen.includes(vandaag()) ? vandaag() : maandag;
+    const f = h(`<form class="kaart form"><h2>Rit toevoegen</h2><div class="grid2">
+      <label><span class="label">Klant</span><select class="veld" name="klant" required><option value="" disabled selected>Kies een klant…</option>${Object.values(KLANTEN).map((k) => `<option value="${k.id}">${esc(k.naam)} · ${esc(k.plaats)} · ${getal(afstandVoor(k.id, rol))} km</option>`).join("")}</select></label>
+      <label><span class="label">Datum</span><input class="veld" type="date" name="datum" value="${std}" required></label>
+      <label><span class="label">Enkele reis (km)</span><input class="veld cijfers" name="afstand" inputmode="decimal" placeholder="kies eerst een klant" required></label>
+      <label><span class="label">Doel</span><select class="veld" name="doel">${Object.entries(DOELEN).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></label>
+      <label><span class="label">Toelichting <span style="text-transform:none;letter-spacing:0">(optioneel)</span></span><input class="veld" name="oms" maxlength="200"></label>
+      </div>
+      <label class="rij"><input type="checkbox" name="retour" checked> Retour <span class="cijfers" style="margin-left:auto;font-weight:600" data-tot>—</span></label>
+      <button type="submit" class="knop knop-primair" disabled>Rit opslaan</button></form>`);
+    const k = f.elements.klant, a = f.elements.afstand, re = f.elements.retour, tot = f.querySelector("[data-tot]"), knop = f.querySelector("[type=submit]");
+    let handmatig = false;
+    const bij = () => { const n = parseFloat(String(a.value).replace(",", ".")) || 0; tot.textContent = n ? `${getal(n * (re.checked ? 2 : 1))} km` : "—"; knop.disabled = !k.value || !n; };
+    k.onchange = () => { if (!handmatig) a.value = String(afstandVoor(k.value, rol)).replace(".", ","); bij(); };
+    a.oninput = () => { handmatig = true; bij(); }; re.onchange = bij;
+    f.onsubmit = (e) => { e.preventDefault(); const n = parseFloat(String(a.value).replace(",", ".")); if (!k.value || !n) return;
+      staat.ritten.push({ id: uid(), mw: rol, klant: k.value, project: Object.values(PROJECTEN).find((p) => p.klant === k.value)?.id || null, datum: f.elements.datum.value, doel: f.elements.doel.value, afstand: n, retour: re.checked, oms: f.elements.oms.value.trim(), status: "concept" });
+      bewaar(); render(); };
+    root.appendChild(f);
+  }
+
+  /* ------------------------------------------------------------- week ---- */
+
+  const STATUS_TEKST = { concept: "Nog niet ingediend", ingediend: "Ingediend, wacht op goedkeuring", goedgekeurd: "Goedgekeurd", afgekeurd: "Teruggestuurd" };
+
+  function renderWeek(root) {
+    const dagen = weekDagen(maandag), zondag = dagen[6];
+    const eigen = staat.uren.filter((u) => u.mw === rol && u.status !== "vervallen" && u.datum >= maandag && u.datum <= zondag);
+    const ritten = staat.ritten.filter((r) => r.mw === rol && r.status !== "vervallen" && r.datum >= maandag && r.datum <= zondag);
+    const status = weekStatus(rol, maandag);
+    const totaal = eigen.reduce((s, u) => s + u.minuten, 0);
+    const decl = eigen.filter((u) => ONDERDELEN[u.onderdeel].declarabel).reduce((s, u) => s + u.minuten, 0);
+    const km = ritten.reduce((s, r) => s + r.afstand * (r.retour ? 2 : 1), 0);
+    const omzet = eigen.reduce((s, u) => s + (ONDERDELEN[u.onderdeel].declarabel ? u.minuten / 60 * (tariefVoor(u.onderdeel, u.mw) || 0) : 0), 0);
+
+    root.appendChild(weekKop());
+    root.appendChild(h(`<div class="status ${status === "goedgekeurd" ? "ok" : status === "afgekeurd" ? "warn" : ""}"><span class="label">Status</span><b>${STATUS_TEKST[status]}</b></div>`));
+    root.appendChild(h(`<dl class="tegels" style="margin:0 0 1.5rem"><div><dt class="label">Geschreven</dt><dd class="cijfers" style="margin:0"><b>${tijd(totaal)}</b></dd></div><div><dt class="label">Declarabel</dt><dd class="cijfers" style="margin:0"><b>${tijd(decl)}</b></dd></div><div><dt class="label">Kilometers</dt><dd class="cijfers" style="margin:0"><b>${getal(km)}</b></dd></div>${zietOmzet() ? `<div><dt class="label">Te factureren</dt><dd class="cijfers" style="margin:0"><b>${euro(omzet + km * KM_TARIEF)}</b></dd></div>` : ""}</dl>`));
+
+    const per = {};
+    for (const u of eigen) { const p = PROJECTEN[ONDERDELEN[u.onderdeel].project]; per[p.id] = per[p.id] || { p, m: 0 }; per[p.id].m += u.minuten; }
+    root.appendChild(h(`<h2 style="font-size:1.125rem;font-weight:600;margin-bottom:.5rem">Per project</h2>`));
+    if (Object.keys(per).length) {
+      const t = h(`<div class="tabel-omhulsel" style="margin-bottom:1.5rem"><table><thead><tr><th class="label">Project</th><th class="label rechts">Uren</th></tr></thead><tbody></tbody></table></div>`);
+      for (const { p, m } of Object.values(per)) t.querySelector("tbody").appendChild(h(`<tr><td><b style="display:block;font-weight:500">${esc(p.naam)}</b><small style="color:var(--muted)">${esc(KLANTEN[p.klant].naam)}</small></td><td class="cijfers rechts" style="font-weight:600">${tijd(m)}</td></tr>`));
+      root.appendChild(t);
+    } else root.appendChild(h(`<p class="uitleg">Deze week nog niets geschreven.</p>`));
+
+    const zet = (nieuw, regelStatus) => {
+      staat.weekstaten[weekSleutel(rol, maandag)] = nieuw;
+      const inWeek = (x) => x.mw === rol && x.datum >= maandag && x.datum <= zondag;
+      for (const u of staat.uren) if (inWeek(u) && (u.status === "concept" || u.status === "ingediend")) u.status = regelStatus;
+      for (const r of staat.ritten) if (inWeek(r) && (r.status === "concept" || r.status === "ingediend")) r.status = regelStatus;
+      bewaar(); render();
+    };
+    if (status === "concept" || status === "afgekeurd") {
+      const f = h(`<div><button type="button" class="knop knop-primair" ${!totaal && !ritten.length ? "disabled" : ""}>Week indienen</button><p class="hulp" style="margin-top:.5rem">Na indienen kun je deze week niet meer wijzigen tot hij is beoordeeld.</p></div>`);
+      f.querySelector("button").onclick = () => zet("ingediend", "ingediend"); root.appendChild(f);
+    } else if (status === "ingediend") {
+      const f = h(`<div><button type="button" class="knop knop-stil">Toch nog wijzigen</button><p class="hulp" style="margin-top:.5rem">Trekt de week terug naar concept zolang hij nog niet is goedgekeurd.</p></div>`);
+      f.querySelector("button").onclick = () => zet("concept", "concept"); root.appendChild(f);
+      if (zietKosten()) {
+        const g = h(`<div style="margin-top:1.5rem;padding-top:1.25rem;border-top:1px solid var(--line)"><p class="label">Als eigenaar</p><div style="display:flex;gap:.75rem;margin-top:.5rem;flex-wrap:wrap"><button type="button" class="knop knop-primair">Goedkeuren</button><button type="button" class="knop knop-stil">Terugsturen</button></div><p class="hulp" style="margin-top:.5rem">In de app keur je de weken van je collega's goed vanuit een apart overzicht (fase 2).</p></div>`);
+        const [a, b] = g.querySelectorAll("button"); a.onclick = () => zet("goedgekeurd", "goedgekeurd"); b.onclick = () => zet("afgekeurd", "concept"); root.appendChild(g);
+      }
+    } else root.appendChild(h(`<p class="uitleg">Deze week is goedgekeurd; de bedragen liggen vast. Kloppen er uren niet, dan boekt de eigenaar een correctie.</p>`));
+  }
+
+  /* ----------------------------------------------------------- beheer ---- */
+
+  function renderBeheer(root) {
+    root.appendChild(h(`<header class="kop"><div><h1>Beheer</h1><p class="uitleg" style="margin:.25rem 0 0">Klanten, projecten en projectonderdelen. De afstand per klant vult straks je ritten in.</p></div></header>`));
+
+    root.appendChild(h(`<h2 style="font-size:1.125rem;font-weight:600;margin:1rem 0 .5rem">Projecten en uitputting</h2>`));
+    const t = h(`<div class="tabel-omhulsel" style="margin-bottom:1.5rem"><table><thead><tr><th class="label">Project</th><th class="label rechts">Besteed</th><th class="label rechts">Van budget</th>${zietOmzet() ? '<th class="label rechts">Omzet</th>' : ""}${zietKosten() ? '<th class="label rechts">Kosten</th><th class="label rechts">Marge</th>' : ""}</tr></thead><tbody></tbody></table></div>`);
+    const alle = staat.uren.filter((u) => u.status !== "vervallen");
+    const zicht = ik().rechten === "eigenaar" ? Object.values(PROJECTEN) : Object.values(PROJECTEN).filter((p) => p.leider === rol);
+    for (const p of zicht) {
+      const regels = alle.filter((u) => ONDERDELEN[u.onderdeel].project === p.id);
+      const uren = regels.reduce((s, u) => s + u.minuten, 0) / 60;
+      const omzet = regels.reduce((s, u) => s + (ONDERDELEN[u.onderdeel].declarabel ? u.minuten / 60 * (tariefVoor(u.onderdeel, u.mw) || 0) : 0), 0);
+      const kosten = regels.reduce((s, u) => s + u.minuten / 60 * MEDEWERKERS[u.mw].kostprijs, 0);
+      const pct = p.budgetUren ? uren / p.budgetUren * 100 : null;
+      t.querySelector("tbody").appendChild(h(`<tr><td><b style="display:block;font-weight:500">${esc(p.naam)}</b><small style="color:var(--muted)">${esc(KLANTEN[p.klant].naam)} · <span class="cijfers">${p.code}</span> · projectleider ${esc(MEDEWERKERS[p.leider].naam.split(" ")[0])}</small></td><td class="cijfers rechts">${getal(uren)} u</td><td class="cijfers rechts">${pct == null ? "—" : getal(pct) + "%"}</td>${zietOmzet() ? `<td class="cijfers rechts">${euro(omzet)}</td>` : ""}${zietKosten() ? `<td class="cijfers rechts">${euro(kosten)}</td><td class="cijfers rechts" style="font-weight:600">${euro(omzet - kosten)}</td>` : ""}</tr>`));
+    }
+    root.appendChild(t);
+    if (!zietKosten()) root.appendChild(h(`<p class="uitleg">Als projectleider zie je de omzet van je eigen projecten. Kostprijs en marge zijn alleen voor de eigenaar — dat is keuze D2 uit het plan.</p>`));
+    else root.appendChild(h(`<p class="uitleg">Marge is omzet min de interne kostprijs van de geschreven uren. Niet-declarabele uren tellen wel mee in de kosten en niet in de omzet.</p>`));
+
+    root.appendChild(h(`<h2 style="font-size:1.125rem;font-weight:600;margin:1.5rem 0 .5rem">Klanten</h2>`));
+    const k = h(`<div class="tabel-omhulsel"><table><thead><tr><th class="label">Klant</th><th class="label">Plaats</th><th class="label rechts">Afstand</th><th class="label rechts">Projecten</th></tr></thead><tbody></tbody></table></div>`);
+    for (const kl of Object.values(KLANTEN)) k.querySelector("tbody").appendChild(h(`<tr><td><b style="font-weight:500">${esc(kl.naam)}</b> <span class="cijfers" style="font-size:.75rem;color:var(--muted);margin-left:.5rem">${kl.code}</span></td><td style="color:var(--muted)">${esc(kl.plaats)}</td><td class="cijfers rechts">${getal(kl.afstand)} km</td><td class="cijfers rechts">${Object.values(PROJECTEN).filter((p) => p.klant === kl.id).length}</td></tr>`));
+    root.appendChild(k);
+    root.appendChild(h(`<p class="uitleg" style="margin-top:1rem">In de app kun je hier klanten, projecten en onderdelen toevoegen en bewerken. In deze demo staan de stamgegevens vast, zodat de voorbeelden blijven kloppen.</p>`));
+  }
+
+  /* ------------------------------------------------------------ blad ---- */
+
+  const blad = document.getElementById("blad");
+  function openBlad(inhoud) { const c = document.getElementById("blad-inhoud"); c.innerHTML = ""; c.appendChild(inhoud); blad.setAttribute("open", ""); document.body.style.overflow = "hidden"; const f = inhoud.querySelector("select,input"); if (f) setTimeout(() => f.focus(), 50); }
+  function sluitBlad() { blad.removeAttribute("open"); document.body.style.overflow = ""; }
+  blad.addEventListener("click", (e) => { if (e.target.closest("[data-sluit]")) sluitBlad(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && blad.hasAttribute("open")) sluitBlad(); });
+
+  /* ---------------------------------------------------------- render ---- */
+
+  function render() {
+    renderRolkeuze(); renderNav();
+    const root = document.getElementById("inhoud"); root.innerHTML = "";
+    const pag = el("div", "pagina" + (scherm === "week" || scherm === "ritten" ? " smal" : ""));
+    ({ uren: renderUren, ritten: renderRitten, week: renderWeek, beheer: renderBeheer })[scherm](pag);
+    root.appendChild(pag);
+  }
+
+  /* ------------------------------------------------------------ boot ---- */
+
+  try { rol = localStorage.getItem("declaratietool-demo-rol") || "petra"; if (!MEDEWERKERS[rol]) rol = "petra"; } catch (e) {}
+  staat = localLoad() || seed();
+  render();
+
+  if (window.claude && typeof window.claude.use === "function") {
+    window.claude.use("db").then((store) => {
+      if (!store) return;
+      db = store; setSync(true, "gedeeld");
+      let eerste = true;
+      db.doc("demo/staat").onSnapshot((snap) => {
+        const data = snap.exists ? snap.data() : null;
+        if (data && data.versie === SEED_VERSIE) {
+          // Eigen schrijfacties komen hier ook langs; niet opnieuw tekenen
+          // terwijl iemand in een veld typt.
+          if (snap.metadata.hasPendingWrites) return;
+          staat = data; localSave();
+          if (!blad.hasAttribute("open") && !document.activeElement?.closest?.(".raster")) render();
+        } else if (eerste) {
+          db.doc("demo/staat").set(staat).catch(() => {});
+        }
+        eerste = false;
+      }, () => { db = null; setSync(false, "lokaal"); });
+    }).catch(() => {});
+  }
+})();
+</script>

@@ -15,6 +15,8 @@ kilometers, week indienen, klanten en projecten beheren, export naar CSV.
 | `docs/besluiten.md` | Wat er gekozen is, met de codes uit het plan |
 | `docs/datamodel.md` | Hoe het model in elkaar zit en waarom |
 | `docs/architectuur.md` | Hoe de applicatie op dat model zit |
+| `docs/uitrollen.md` | Naar Supabase en Vercel, stap voor stap |
+| `docs/demo.html` | Klikbare demo van de schermen, zonder server |
 | `supabase/migrations/` | Het schema: tabellen, tarieflogica, rechten |
 | `supabase/tests/` | Schematests |
 | `app/`, `lib/`, `components/` | De applicatie (Next.js) |
