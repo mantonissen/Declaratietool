@@ -1,0 +1,1408 @@
+<title>Declaratietool Bouwplan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+  :root {
+    --paper:      #F2F4F0;
+    --surface:    #FFFFFF;
+    --surface-2:  #E8EBE5;
+    --ink:        #111716;
+    --ink-2:      #3B4441;
+    --muted:      #6C7873;
+    --line:       #D5DAD2;
+    --line-2:     #B6BDB4;
+    --accent:     #0B6B4F;
+    --accent-ink: #075139;
+    --accent-bg:  #E0EFE8;
+    --warn:       #8A5A0B;
+    --warn-bg:    #F6EDDB;
+    --shadow:     0 1px 2px rgba(17,23,22,.05), 0 6px 18px -12px rgba(17,23,22,.28);
+
+    --f-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    --f-body:    "Source Serif 4", Georgia, "Times New Roman", serif;
+    --f-mono:    "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+    --wrap: 1120px;
+    --prose: 68ch;
+    color-scheme: light;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:      #0D1211;
+      --surface:    #151B19;
+      --surface-2:  #1C2321;
+      --ink:        #E7EDEA;
+      --ink-2:      #B5C0BB;
+      --muted:      #86928D;
+      --line:       #28302E;
+      --line-2:     #3A4441;
+      --accent:     #4EC69A;
+      --accent-ink: #A6E7CC;
+      --accent-bg:  #10281F;
+      --warn:       #D6A44A;
+      --warn-bg:    #2A2214;
+      --shadow:     0 1px 2px rgba(0,0,0,.4), 0 6px 20px -12px rgba(0,0,0,.7);
+      color-scheme: dark;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:      #0D1211;
+    --surface:    #151B19;
+    --surface-2:  #1C2321;
+    --ink:        #E7EDEA;
+    --ink-2:      #B5C0BB;
+    --muted:      #86928D;
+    --line:       #28302E;
+    --line-2:     #3A4441;
+    --accent:     #4EC69A;
+    --accent-ink: #A6E7CC;
+    --accent-bg:  #10281F;
+    --warn:       #D6A44A;
+    --warn-bg:    #2A2214;
+    --shadow:     0 1px 2px rgba(0,0,0,.4), 0 6px 20px -12px rgba(0,0,0,.7);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--f-body);
+    font-size: 17px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 24px; }
+  .prose { max-width: var(--prose); }
+
+  h1, h2, h3, h4 { font-family: var(--f-display); text-wrap: balance; margin: 0; line-height: 1.14; }
+  p { margin: 0; }
+
+  .eyebrow {
+    font-family: var(--f-mono);
+    font-size: 11.5px;
+    font-weight: 500;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  a { color: var(--accent-ink); }
+
+  /* ---------- masthead ---------- */
+
+  .masthead {
+    border-bottom: 1px solid var(--line);
+    background: var(--surface);
+  }
+  .masthead-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    padding-top: 48px;
+    padding-bottom: 40px;
+  }
+  .masthead h1 {
+    font-size: clamp(34px, 6.2vw, 58px);
+    font-weight: 800;
+    letter-spacing: -.028em;
+  }
+  .masthead .lede {
+    font-size: clamp(17px, 2.1vw, 20px);
+    color: var(--ink-2);
+    max-width: 62ch;
+  }
+  .meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 28px;
+    border-top: 1px solid var(--line);
+    padding-top: 18px;
+  }
+  .meta-item { display: flex; flex-direction: column; gap: 2px; }
+  .meta-item .v {
+    font-family: var(--f-mono);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---------- sections ---------- */
+
+  section { padding: 56px 0; border-bottom: 1px solid var(--line); }
+  section:last-of-type { border-bottom: 0; }
+
+  .sec-head { display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px; }
+  .sec-head h2 {
+    font-size: clamp(24px, 3.6vw, 34px);
+    font-weight: 700;
+    letter-spacing: -.02em;
+  }
+  .sec-head p { color: var(--ink-2); max-width: var(--prose); }
+
+  .stack { display: flex; flex-direction: column; gap: 18px; }
+  .stack-lg { display: flex; flex-direction: column; gap: 40px; }
+
+  /* ---------- figures ---------- */
+
+  figure { margin: 0; display: flex; flex-direction: column; gap: 14px; }
+  .fig-frame {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 22px 18px;
+    overflow-x: auto;
+  }
+  .fig-frame svg { display: block; max-width: 100%; height: auto; min-width: 780px; margin: 0 auto; color: var(--ink-2); }
+  .fig-hint { font-family: var(--f-mono); font-size: 11px; color: var(--muted); letter-spacing: .04em; }
+  @media (min-width: 900px) { .fig-hint { display: none; } }
+  figcaption { font-size: 15px; color: var(--muted); max-width: var(--prose); }
+  figcaption b { color: var(--ink-2); font-weight: 600; }
+
+  .d-box { fill: var(--surface); stroke: var(--line-2); stroke-width: 1.25; }
+  .d-box-key { fill: var(--accent-bg); stroke: var(--accent); stroke-width: 1.75; }
+  .d-box-dim { fill: var(--surface); stroke: var(--line); stroke-width: 1; }
+  .d-t { font-family: var(--f-display); font-size: 14.5px; font-weight: 600; fill: var(--ink); }
+  .d-s { font-family: var(--f-mono); font-size: 11.5px; fill: var(--muted); letter-spacing: .03em; }
+  .d-l { font-family: var(--f-mono); font-size: 11.5px; fill: var(--muted); letter-spacing: .02em; }
+  .ar-fill { fill: currentColor; }
+  .ar-key-fill { fill: var(--accent); }
+  .d-key-t { fill: var(--accent-ink); }
+  .d-dim-t { fill: var(--muted); }
+  .d-line { stroke: var(--line-2); stroke-width: 1.25; fill: none; }
+  .d-line-key { stroke: var(--accent); stroke-width: 1.75; fill: none; }
+  .d-num { font-family: var(--f-mono); font-size: 11px; font-weight: 600; fill: var(--muted); }
+
+  /* ---------- decision register ---------- */
+
+  .group { display: flex; flex-direction: column; gap: 16px; }
+  .group + .group { margin-top: 44px; }
+  .group-head {
+    display: flex; align-items: baseline; gap: 14px;
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 8px;
+  }
+  .group-head h3 { font-size: 19px; font-weight: 700; letter-spacing: -.01em; }
+  .group-head .count { margin-left: auto; font-family: var(--f-mono); font-size: 12px; color: var(--muted); }
+
+  .decision {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    box-shadow: var(--shadow);
+    display: grid;
+    grid-template-columns: 78px 1fr;
+  }
+  .d-rail {
+    border-right: 1px solid var(--line);
+    padding: 20px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    background: var(--surface-2);
+  }
+  .d-code {
+    font-family: var(--f-mono);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+    letter-spacing: .02em;
+  }
+  .tag {
+    font-family: var(--f-mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    padding: 3px 6px;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+  .tag-now  { background: var(--accent-bg); color: var(--accent-ink); }
+  .tag-late { background: var(--surface); color: var(--muted); border: 1px solid var(--line-2); }
+
+  .d-body { padding: 20px 22px 22px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .d-body h4 { font-size: 20px; font-weight: 700; letter-spacing: -.015em; }
+  .d-q { color: var(--ink-2); font-size: 16px; }
+
+  .options { display: flex; flex-direction: column; gap: 0; margin-top: 10px; border-top: 1px solid var(--line); }
+
+  .opt {
+    display: grid;
+    grid-template-columns: 26px 1fr;
+    gap: 12px;
+    align-items: start;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    padding: 14px 8px 14px 4px;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+    transition: background .12s ease;
+  }
+  .opt:hover { background: var(--surface-2); }
+  .opt:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .opt-mark {
+    width: 22px; height: 22px;
+    border: 1.5px solid var(--line-2);
+    border-radius: 50%;
+    margin-top: 2px;
+    display: grid; place-items: center;
+    font-family: var(--f-mono); font-size: 11px; font-weight: 600;
+    color: var(--muted);
+    flex: none;
+    transition: background .12s ease, border-color .12s ease, color .12s ease;
+  }
+  .opt-main { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .opt-title { font-family: var(--f-display); font-size: 16px; font-weight: 600; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .opt-desc { font-size: 15.5px; color: var(--ink-2); }
+  .opt-cost {
+    font-family: var(--f-mono);
+    font-size: 12.5px;
+    color: var(--muted);
+    display: flex; flex-wrap: wrap; gap: 4px 14px;
+  }
+  .opt-cost span::before { content: "› "; color: var(--line-2); }
+
+  .rec {
+    font-family: var(--f-mono);
+    font-size: 10px; font-weight: 600;
+    letter-spacing: .09em; text-transform: uppercase;
+    color: var(--accent-ink);
+    background: var(--accent-bg);
+    padding: 2px 6px; border-radius: 2px;
+  }
+
+  .opt[aria-pressed="true"] { background: var(--accent-bg); }
+  .opt[aria-pressed="true"] .opt-mark { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+  :root[data-theme="dark"] .opt[aria-pressed="true"] .opt-mark,
+  :root:not([data-theme="light"]) .opt[aria-pressed="true"] .opt-mark { color: var(--paper); }
+  .opt[aria-pressed="true"] .opt-title { color: var(--accent-ink); }
+
+  .d-note {
+    margin-top: 12px;
+    font-size: 15px;
+    color: var(--ink-2);
+    background: var(--warn-bg);
+    border-left: 2px solid var(--warn);
+    padding: 10px 14px;
+    border-radius: 0 2px 2px 0;
+  }
+  .d-note b { color: var(--warn); font-weight: 600; }
+
+  /* ---------- summary bar ---------- */
+
+  .summary {
+    position: sticky; bottom: 0; z-index: 20;
+    background: var(--surface);
+    border-top: 1px solid var(--line-2);
+    box-shadow: 0 -6px 20px -14px rgba(0,0,0,.5);
+  }
+  .summary-inner {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px;
+    padding: 12px 24px;
+    max-width: var(--wrap); margin: 0 auto;
+  }
+  .summary .progress { display: flex; align-items: baseline; gap: 9px; }
+  .summary .progress .n {
+    font-family: var(--f-mono); font-size: 19px; font-weight: 600;
+    color: var(--ink); font-variant-numeric: tabular-nums;
+  }
+  .summary .progress .lbl { font-family: var(--f-mono); font-size: 12px; color: var(--muted); }
+  .bar { flex: 1 1 120px; height: 5px; background: var(--surface-2); border-radius: 3px; overflow: hidden; min-width: 90px; }
+  .bar > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s ease; }
+  .btn {
+    font-family: var(--f-display); font-size: 14px; font-weight: 600;
+    padding: 9px 16px; border-radius: 3px; cursor: pointer;
+    border: 1px solid var(--accent); background: var(--accent); color: #fff;
+    transition: opacity .12s ease;
+  }
+  :root[data-theme="dark"] .btn, :root:not([data-theme="light"]) .btn { color: #06231A; }
+  .btn:hover { opacity: .88; }
+  .btn:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 2px; }
+  .btn.ghost { background: none; color: var(--accent-ink); }
+  .sync {
+    font-family: var(--f-mono); font-size: 11.5px; color: var(--muted);
+    display: flex; align-items: center; gap: 7px;
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--line-2); flex: none; }
+  .dot.live { background: var(--accent); }
+
+  /* ---------- tables ---------- */
+
+  .table-frame { overflow-x: auto; border: 1px solid var(--line); border-radius: 3px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; min-width: 560px; }
+  th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  thead th {
+    font-family: var(--f-mono); font-size: 11px; font-weight: 600;
+    letter-spacing: .1em; text-transform: uppercase; color: var(--muted);
+    background: var(--surface-2); white-space: nowrap;
+  }
+  tbody tr:last-child td { border-bottom: 0; }
+  td.num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 14.5px; }
+  td strong { font-family: var(--f-display); font-weight: 600; }
+  .phase-code { font-family: var(--f-mono); font-size: 12px; color: var(--muted); display: block; }
+
+  /* ---------- misc blocks ---------- */
+
+  .ladder { display: flex; flex-direction: column; gap: 0; counter-reset: step; }
+  .rung {
+    display: grid; grid-template-columns: 34px 1fr; gap: 14px;
+    padding: 13px 0; border-bottom: 1px solid var(--line);
+  }
+  .rung:first-child { border-top: 1px solid var(--line); }
+  .rung .k { font-family: var(--f-mono); font-size: 12px; font-weight: 600; color: var(--accent-ink); padding-top: 3px; }
+  .rung .t { font-size: 16px; }
+  .rung .t b { font-family: var(--f-display); font-weight: 600; }
+  .rung .t span { color: var(--muted); display: block; font-size: 14.5px; }
+
+  .callouts { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 3px; }
+  .callout { background: var(--surface); padding: 20px; display: flex; flex-direction: column; gap: 7px; }
+  .callout h4 { font-size: 16px; font-weight: 700; }
+  .callout p { font-size: 15px; color: var(--ink-2); }
+
+  .checklist { display: flex; flex-direction: column; gap: 0; }
+  .check { display: grid; grid-template-columns: 52px 1fr; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line); align-items: baseline; }
+  .check:first-child { border-top: 1px solid var(--line); }
+  .check .c { font-family: var(--f-mono); font-size: 13px; font-weight: 600; color: var(--accent-ink); }
+  .check .q { font-size: 16px; }
+
+  .footnote { font-size: 14.5px; color: var(--muted); max-width: var(--prose); }
+
+  @media (max-width: 720px) {
+    body { font-size: 16px; }
+    .wrap { padding: 0 16px; }
+    section { padding: 40px 0; }
+    .decision { grid-template-columns: 1fr; }
+    .d-rail {
+      border-right: 0; border-bottom: 1px solid var(--line);
+      flex-direction: row; align-items: center; gap: 12px; padding: 12px 16px;
+    }
+    .d-body { padding: 16px 16px 18px; }
+    .summary-inner { padding: 8px 14px; gap: 10px; flex-wrap: nowrap; }
+    .summary .progress .lbl { display: none; }
+    .sync { display: none; }
+    .bar { flex: 1 1 auto; min-width: 30px; }
+    .btn { padding: 8px 11px; font-size: 13px; white-space: nowrap; }
+  }
+  .lbl-lang { display: inline; }
+  .lbl-kort { display: none; }
+  @media (max-width: 720px) {
+    .lbl-lang { display: none; }
+    .lbl-kort { display: inline; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+
+<header class="masthead">
+  <div class="wrap masthead-inner">
+    <div class="stack">
+      <p class="eyebrow">Keuzedocument · versie 1 · 4 september 2026</p>
+      <h1>Uren, ritten en marge in één tool</h1>
+      <p class="lede">
+        Een plan voor een uren- en declaratietool voor jou en je collega's: uren op klant,
+        project en projectonderdeel, bezoeken en kilometers, verkooptarieven naast interne
+        kostprijs — zodat je per project ziet wat er onder de streep overblijft. Hieronder
+        staan de beslissingen die ertoe doen. Kies per beslissing een optie; je keuzes worden
+        bewaard en zijn ook zichtbaar voor je collega's.
+      </p>
+    </div>
+    <div class="meta-row">
+      <div class="meta-item"><span class="eyebrow">Beslissingen</span><span class="v" id="m-total">—</span></div>
+      <div class="meta-item"><span class="eyebrow">Nu nodig</span><span class="v" id="m-now">—</span></div>
+      <div class="meta-item"><span class="eyebrow">Kan later</span><span class="v" id="m-late">—</span></div>
+      <div class="meta-item"><span class="eyebrow">Eerste werkende versie</span><span class="v">4–6 weken</span></div>
+      <div class="meta-item"><span class="eyebrow">Aanbeveling gemarkeerd</span><span class="v">per beslissing</span></div>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<!-- ============ 1. HET MODEL ============ -->
+<section id="model">
+  <div class="wrap stack-lg">
+    <div class="sec-head">
+      <p class="eyebrow">Deel 1</p>
+      <h2>Waar alles aan hangt</h2>
+      <p>
+        Bijna elke keuze verderop volgt uit één ding: waar een geschreven uur aan vastzit,
+        en waar het zijn twee bedragen vandaan haalt. Eén verkooptarief bepaalt wat de klant
+        betaalt, één kostprijs bepaalt wat het jou kost. Het verschil is je marge — en die
+        wil je per project, per klant en per medewerker kunnen zien.
+      </p>
+    </div>
+
+    <figure>
+      <div class="fig-frame">
+        <svg viewBox="0 0 920 500" role="img" aria-label="Datamodel: klant bevat projecten, projecten bevatten onderdelen, een urenregel wordt op een onderdeel geboekt door een medewerker, en haalt een verkooptarief en een kostprijs op uit aparte tabellen voordat het een factuurregel wordt.">
+          <defs>
+            <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <polygon class="ar-fill" points="0,1.5 9,5 0,8.5"></polygon>
+            </marker>
+            <marker id="ar-key" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <polygon class="ar-key-fill" points="0,1.5 9,5 0,8.5"></polygon>
+            </marker>
+          </defs>
+
+          <!-- spine -->
+          <rect class="d-box" x="310" y="24" width="200" height="48" rx="2"></rect>
+          <text class="d-t" x="410" y="46" text-anchor="middle">Klant</text>
+          <text class="d-s" x="410" y="61" text-anchor="middle">tariefkaart · factuurgegevens</text>
+
+          <rect class="d-box" x="310" y="116" width="200" height="48" rx="2"></rect>
+          <text class="d-t" x="410" y="138" text-anchor="middle">Project</text>
+          <text class="d-s" x="410" y="153" text-anchor="middle">budget · facturatiemodel</text>
+
+          <rect class="d-box" x="310" y="208" width="200" height="48" rx="2"></rect>
+          <text class="d-t" x="410" y="230" text-anchor="middle">Projectonderdeel</text>
+          <text class="d-s" x="410" y="245" text-anchor="middle">eigen budget · eigen tarief</text>
+
+          <rect class="d-box-key" x="280" y="300" width="260" height="76" rx="2"></rect>
+          <text class="d-t d-key-t" x="410" y="326" text-anchor="middle">Urenregel</text>
+          <text class="d-s" x="410" y="343" text-anchor="middle">datum · minuten · omschrijving</text>
+          <text class="d-s" x="410" y="358" text-anchor="middle">declarabel j/n · status</text>
+
+          <rect class="d-box" x="310" y="432" width="200" height="48" rx="2"></rect>
+          <text class="d-t" x="410" y="454" text-anchor="middle">Factuurregel</text>
+          <text class="d-s" x="410" y="469" text-anchor="middle">bevroren bedragen</text>
+
+          <line class="d-line" x1="410" y1="72" x2="410" y2="112" marker-end="url(#ar)"></line>
+          <text class="d-l" x="420" y="96">heeft</text>
+          <line class="d-line" x1="410" y1="164" x2="410" y2="204" marker-end="url(#ar)"></line>
+          <text class="d-l" x="420" y="188">bestaat uit</text>
+          <line class="d-line-key" x1="410" y1="256" x2="410" y2="296" marker-end="url(#ar-key)"></line>
+          <text class="d-l" x="420" y="280">geboekt op</text>
+          <line class="d-line" x1="410" y1="376" x2="410" y2="428" marker-end="url(#ar)"></line>
+          <text class="d-l" x="420" y="406">wordt</text>
+
+          <!-- left column -->
+          <rect class="d-box" x="40" y="116" width="200" height="48" rx="2"></rect>
+          <text class="d-t" x="140" y="138" text-anchor="middle">Rit / bezoek</text>
+          <text class="d-s" x="140" y="153" text-anchor="middle">km · adres · doel</text>
+
+          <rect class="d-box" x="40" y="300" width="200" height="48" rx="2"></rect>
+          <text class="d-t" x="140" y="322" text-anchor="middle">Medewerker</text>
+          <text class="d-s" x="140" y="337" text-anchor="middle">rol · km-vergoeding</text>
+
+          <line class="d-line" x1="244" y1="140" x2="306" y2="140" marker-end="url(#ar)"></line>
+          <text class="d-l" x="275" y="131" text-anchor="middle">bezoek bij</text>
+          <line class="d-line-key" x1="244" y1="324" x2="276" y2="324" marker-end="url(#ar-key)"></line>
+          <text class="d-l" x="260" y="315" text-anchor="middle">schrijft</text>
+          <line class="d-line" x1="140" y1="296" x2="140" y2="168" marker-end="url(#ar)"></line>
+          <text class="d-l" x="150" y="236">rijdt</text>
+
+          <!-- right column -->
+          <rect class="d-box" x="640" y="286" width="240" height="48" rx="2"></rect>
+          <text class="d-t" x="760" y="308" text-anchor="middle">Tariefregel — verkoop</text>
+          <text class="d-s" x="760" y="323" text-anchor="middle">geldig vanaf · per niveau</text>
+
+          <rect class="d-box" x="640" y="348" width="240" height="48" rx="2"></rect>
+          <text class="d-t" x="760" y="370" text-anchor="middle">Kostprijs — intern</text>
+          <text class="d-s" x="760" y="385" text-anchor="middle">per medewerker · per periode</text>
+
+          <line class="d-line-key" x1="636" y1="310" x2="544" y2="310" marker-end="url(#ar-key)"></line>
+          <text class="d-l" x="590" y="301" text-anchor="middle">verkooptarief</text>
+          <line class="d-line-key" x1="636" y1="372" x2="544" y2="372" marker-end="url(#ar-key)"></line>
+          <text class="d-l" x="590" y="390" text-anchor="middle">kostprijs</text>
+        </svg>
+      </div>
+      <p class="fig-hint">Schuif horizontaal om het hele schema te zien.</p>
+      <figcaption>
+        De urenregel is het hart. Hij hangt aan een <b>projectonderdeel</b> — niet direct aan
+        een project — en hij <b>bewaart zijn tarieven niet zelf</b>: die worden opgezocht.
+        Een rit is een eigen record naast de uren, want je maakt kilometers op dagen dat je
+        weinig schrijft en andersom.
+      </figcaption>
+    </figure>
+
+    <div class="stack">
+      <h3 style="font-size:20px;font-weight:700;">Hoe een uur zijn tarief vindt</h3>
+      <p class="prose">
+        Tarieven op één plek vastleggen werkt drie maanden en dan niet meer: één klant krijgt
+        korting, één onderdeel is meerwerk tegen een ander tarief, een junior kost minder dan
+        een senior. De oplossing is niet meer velden, maar een <b>zoekvolgorde</b>. Bij het
+        berekenen loopt het systeem de lijst van boven naar beneden en stopt bij de eerste
+        regel die past op de datum van de urenregel.
+      </p>
+    </div>
+
+    <figure>
+      <div class="fig-frame">
+        <svg viewBox="0 0 900 440" role="img" aria-label="Tariefzoekvolgorde: een urenregel valt langs zeven niveaus en stopt bij het eerste dat een tarief oplevert; de niveaus daaronder worden niet meer bekeken.">
+          <defs>
+            <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <polygon class="ar-fill" points="0,1.5 9,5 0,8.5"></polygon>
+            </marker>
+            <marker id="ar2-key" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <polygon class="ar-key-fill" points="0,1.5 9,5 0,8.5"></polygon>
+            </marker>
+          </defs>
+          <text class="d-s" x="20" y="22">URENREGEL · 3,5 u · 12 mrt · Jansen · Noord / Migratie</text>
+          <line class="d-line-key" x1="150" y1="34" x2="150" y2="182" stroke-dasharray="4 4"></line>
+
+          <text class="d-num" x="118" y="66">1</text>
+          <rect class="d-box" x="170" y="48" width="480" height="38" rx="2"></rect>
+          <text class="d-t" x="186" y="72">Tarief handmatig op de urenregel</text>
+          <line class="d-line" x1="150" y1="67" x2="166" y2="67" marker-end="url(#ar2)"></line>
+          <text class="d-l" x="666" y="71">leeg</text>
+
+          <text class="d-num" x="118" y="114">2</text>
+          <rect class="d-box" x="170" y="96" width="480" height="38" rx="2"></rect>
+          <text class="d-t" x="186" y="120">Tarief op het projectonderdeel</text>
+          <line class="d-line" x1="150" y1="115" x2="166" y2="115" marker-end="url(#ar2)"></line>
+          <text class="d-l" x="666" y="119">leeg</text>
+
+          <text class="d-num" x="118" y="162">3</text>
+          <rect class="d-box-key" x="170" y="144" width="480" height="38" rx="2"></rect>
+          <text class="d-t d-key-t" x="186" y="168">Tarief op project × rol</text>
+          <line class="d-line-key" x1="150" y1="163" x2="166" y2="163" marker-end="url(#ar2-key)"></line>
+          <line class="d-line-key" x1="654" y1="163" x2="712" y2="163" marker-end="url(#ar2-key)"></line>
+          <text class="d-t d-key-t" x="722" y="160">€ 145 / uur</text>
+          <text class="d-s" x="722" y="176">treffer — klaar</text>
+
+          <text class="d-num d-dim-t" x="118" y="210">4</text>
+          <rect class="d-box-dim" x="170" y="192" width="480" height="34" rx="2"></rect>
+          <text class="d-t d-dim-t" x="186" y="214">Vast tarief op het project</text>
+
+          <text class="d-num d-dim-t" x="118" y="250">5</text>
+          <rect class="d-box-dim" x="170" y="232" width="480" height="34" rx="2"></rect>
+          <text class="d-t d-dim-t" x="186" y="254">Tariefkaart van de klant × rol</text>
+
+          <text class="d-num d-dim-t" x="118" y="290">6</text>
+          <rect class="d-box-dim" x="170" y="272" width="480" height="34" rx="2"></rect>
+          <text class="d-t d-dim-t" x="186" y="294">Standaardtarief van de klant</text>
+
+          <text class="d-num d-dim-t" x="118" y="330">7</text>
+          <rect class="d-box-dim" x="170" y="312" width="480" height="34" rx="2"></rect>
+          <text class="d-t d-dim-t" x="186" y="334">Standaardtarief van de rol</text>
+
+          <line class="d-line" x1="150" y1="182" x2="150" y2="330" stroke-dasharray="2 6"></line>
+          <text class="d-s" x="170" y="372">Niveaus 4 tot en met 7 worden niet meer bekeken.</text>
+          <text class="d-s" x="170" y="392">Elke tariefregel heeft een &#8216;geldig vanaf&#8217;-datum: er wordt gezocht met 12 maart,</text>
+          <text class="d-s" x="170" y="410">niet met vandaag. Een tariefverhoging raakt oude uren dus niet.</text>
+        </svg>
+      </div>
+      <p class="fig-hint">Schuif horizontaal om het hele schema te zien.</p>
+      <figcaption>
+        Dezelfde volgorde geldt voor de kostprijs, alleen korter: kostprijs op het project,
+        anders de kostprijs van de medewerker in die periode. <b>Marge per urenregel</b> is
+        dan simpelweg het ene bedrag min het andere — en daarmee optelbaar over elk niveau
+        dat je maar wilt bekijken.
+      </figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ============ 2. BESLISSINGEN ============ -->
+<section id="beslissingen">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Deel 2 · het keuzeregister</p>
+      <h2><span id="h-total">21</span> beslissingen</h2>
+      <p>
+        Elke beslissing heeft een code, zodat je er in een gesprek naar kunt verwijzen
+        ("doe bij B2 optie c"). <b>Nu</b> betekent dat de bouw erop wacht; <b>later</b>
+        betekent dat je het kunt uitstellen zonder iets over te doen. Waar ik een voorkeur
+        heb, staat die erbij — dat is een advies, geen voorschrift.
+      </p>
+    </div>
+
+    <div id="register"></div>
+  </div>
+</section>
+
+<!-- ============ 3. FASERING ============ -->
+<section id="fasering">
+  <div class="wrap stack-lg">
+    <div class="sec-head">
+      <p class="eyebrow">Deel 3</p>
+      <h2>Wat wanneer af is</h2>
+      <p>
+        Uitgaande van één ontwikkelaar die er serieus aan werkt. De eerste fase is bewust
+        klein: uren en kilometers erin krijgen op je telefoon is het enige dat op dag één
+        écht moet werken, want zonder ingevoerde data heeft de rest geen betekenis.
+      </p>
+    </div>
+
+    <div class="table-frame">
+      <table>
+        <thead>
+          <tr>
+            <th>Fase</th>
+            <th>Wat erin zit</th>
+            <th>Duur</th>
+            <th>Klaar wanneer</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Fundament</strong><span class="phase-code">fase 0</span></td>
+            <td>Keuzes vastleggen, datamodel, database opzetten, inloggen, lege schermen die kloppen.</td>
+            <td class="num">3–5 dagen</td>
+            <td>Je kunt inloggen en een klant aanmaken.</td>
+          </tr>
+          <tr>
+            <td><strong>Schrijven</strong><span class="phase-code">fase 1 · MVP</span></td>
+            <td>Klanten, projecten, onderdelen. Uren invoeren op mobiel en desktop. Ritten en kilometers. Eigen weekoverzicht. Export naar Excel.</td>
+            <td class="num">3–4 weken</td>
+            <td>Jij en je collega's schrijven een hele week echt in de tool.</td>
+          </tr>
+          <tr>
+            <td><strong>Geld</strong><span class="phase-code">fase 2</span></td>
+            <td>Tariefzoekvolgorde, interne kostprijs, marge per project en klant, budgetbewaking, rechten op wie tarieven ziet.</td>
+            <td class="num">2–3 weken</td>
+            <td>Je ziet per project wat je eraan verdient.</td>
+          </tr>
+          <tr>
+            <td><strong>Eruit halen</strong><span class="phase-code">fase 3</span></td>
+            <td>Weekstaat indienen en goedkeuren, urenspecificatie als PDF voor de klant, factuurvoorstel, regels vergrendelen na facturatie.</td>
+            <td class="num">2–3 weken</td>
+            <td>Een maand afsluiten kost een half uur in plaats van een dag.</td>
+          </tr>
+          <tr>
+            <td><strong>Comfort</strong><span class="phase-code">fase 4 · optioneel</span></td>
+            <td>Koppeling met je boekhouding, bonnetjes fotograferen, offline invoeren, verlof en ziekte, bezettingsprognose.</td>
+            <td class="num">per stuk 3–8 dagen</td>
+            <td>Op volgorde van wat je het meest irriteert.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="footnote">
+      De duur van fase 1 hangt vooral aan beslissing <b>C1</b> (hoe je uren invoert): een
+      weekraster plus dagweergave is ongeveer een week meer werk dan alleen een dagweergave,
+      en die week verdien je terug als iemand van jullie liever achteraf een hele week invult.
+    </p>
+  </div>
+</section>
+
+<!-- ============ 4. LETTEN OP ============ -->
+<section id="aandacht">
+  <div class="wrap stack-lg">
+    <div class="sec-head">
+      <p class="eyebrow">Deel 4</p>
+      <h2>Waar dit soort tools op stukloopt</h2>
+      <p>Vier dingen die je nu bijna gratis goed doet en later duur zijn om te repareren.</p>
+    </div>
+
+    <div class="callouts">
+      <div class="callout">
+        <h4>Tarieven met terugwerkende kracht</h4>
+        <p>
+          Zonder &#8216;geldig vanaf&#8217;-datums verandert een tariefverhoging stilletjes
+          je omzet van vorig jaar. Elke tariefregel en elke kostprijs krijgt daarom een
+          begindatum, en gefactureerde regels krijgen hun bedragen bevroren (beslissing B4).
+        </p>
+      </div>
+      <div class="callout">
+        <h4>Wie mag de marge zien</h4>
+        <p>
+          De interne kostprijs is in feite het salaris van je collega. Zet standaard aan dat
+          medewerkers hun eigen uren zien zonder bedragen, en dat marge alleen voor jou
+          zichtbaar is (beslissing D2). Achteraf afschermen is pijnlijker dan het lijkt.
+        </p>
+      </div>
+      <div class="callout">
+        <h4>Kilometers en de fiscus</h4>
+        <p>
+          Maak het kilometerbedrag per jaar instelbaar in plaats van het in de code te zetten
+          — in 2025 was de onbelaste vergoeding € 0,23 per kilometer, maar dat bedrag beweegt.
+          Rijd je in een auto van de zaak, dan gelden zwaardere eisen aan een sluitende
+          rittenregistratie; leg dat even naast je boekhouder voordat je C3 kiest.
+        </p>
+      </div>
+      <div class="callout">
+        <h4>Bewaren en teruglezen</h4>
+        <p>
+          Je administratie moet zeven jaar terug te vinden zijn. Verwijder urenregels dus niet
+          echt, maar markeer ze als vervallen, en houd bij wie wat wanneer wijzigde. Dat is
+          één extra tabel nu, en de enige manier om later een discussie met een klant te winnen.
+        </p>
+      </div>
+    </div>
+
+    <p class="footnote">
+      Nog twee kleinere dingen: kies bij hosting bewust een Europese regio en leg een
+      verwerkersovereenkomst vast met de partij waar de data staat (beslissing A3), en zet
+      doorlopende locatiebepaling van collega's niet aan — dat is onder de AVG een zware
+      maatregel en voor kilometerregistratie zelden nodig.
+    </p>
+  </div>
+</section>
+
+<!-- ============ 5. NU BESLISSEN ============ -->
+<section id="nu">
+  <div class="wrap stack-lg">
+    <div class="sec-head">
+      <p class="eyebrow">Deel 5</p>
+      <h2>Wat ik van je nodig heb om te beginnen</h2>
+      <p>
+        Deze blokkeren de bouw; de rest kunnen we onderweg beslissen. Vink ze hierboven aan,
+        of noem gewoon de codes en je keuze.
+      </p>
+    </div>
+    <div class="checklist" id="nulijst"></div>
+    <p class="footnote">
+      Weet je het bij een paar niet? Kies de aanbevolen optie — die is bij elke beslissing zo
+      gekozen dat je er later vanaf kunt wijken zonder alles overnieuw te doen.
+    </p>
+  </div>
+</section>
+
+</main>
+
+<div class="summary">
+  <div class="summary-inner">
+    <div class="progress">
+      <span class="n" id="prog-n">0/18</span>
+      <span class="lbl">beslissingen gekozen</span>
+    </div>
+    <div class="bar"><i id="prog-bar"></i></div>
+    <div class="sync"><span class="dot" id="sync-dot"></span><span id="sync-txt">lokaal bewaard</span></div>
+    <button class="btn ghost" id="btn-rec" type="button"><span class="lbl-lang">Neem alle aanbevelingen over</span><span class="lbl-kort">Aanbevelingen</span></button>
+    <button class="btn" id="btn-copy" type="button"><span class="lbl-lang">Kopieer mijn keuzes</span><span class="lbl-kort">Kopieer</span></button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var GROUPS = [
+    {
+      id: "A", title: "Fundament", intro: "",
+      decisions: [
+        {
+          code: "A1", when: "nu", title: "Bouwen of kopen?",
+          q: "De eerlijke eerste vraag: moet dit maatwerk zijn?",
+          options: [
+            { id: "a", t: "Maatwerk bouwen", rec: true,
+              d: "Je eigen tool, precies om jullie projectonderdelen, tariefstructuur en margeberekening heen.",
+              c: ["4–6 weken tot bruikbaar", "geen abonnement per gebruiker", "je onderhoudt het zelf"] },
+            { id: "b", t: "Bestaand pakket nemen",
+              d: "Gripp, Simplicate, Timewax, Harvest of Toggl. Morgen live, alles al doordacht.",
+              c: ["€ 15–40 per gebruiker per maand", "onderdelen-diepte en interne kostprijs verschillen sterk per pakket", "marge-inzicht vaak in het duurdere abonnement"] },
+            { id: "c", t: "Pakket voor invoer, eigen rapportage",
+              d: "Uren schrijven in een bestaand pakket, data eruit trekken en zelf de marge-analyse bouwen.",
+              c: ["1–2 weken werk", "je zit vast aan hun datamodel", "twee systemen om te onderhouden"] }
+          ],
+          note: "Kies b of c als je binnen twee weken moet draaien. Kies a als de tariefstructuur uit deel 1 echt zo werkt bij jullie — dat is precies het stuk waar standaardpakketten in verschillen."
+        },
+        {
+          code: "A2", when: "nu", title: "Waar het op gebouwd wordt",
+          q: "De techniek eronder. Belangrijk voor de snelheid nu en het onderhoud later.",
+          options: [
+            { id: "a", t: "Next.js + Supabase", rec: true,
+              d: "Eén taal voor web en later een app, database met ingebouwde rechten, inloggen en bestandsopslag inbegrepen.",
+              c: ["snelste route naar werkend", "gratis tot ongeveer 50k regels", "EU-regio beschikbaar"] },
+            { id: "b", t: "Next.js + eigen database",
+              d: "Zelfde front-end, maar een eigen Postgres met Drizzle en zelf geregeld inloggen.",
+              c: ["1–2 weken extra", "geen afhankelijkheid van één leverancier", "je regelt zelf back-ups"] },
+            { id: "c", t: "Laravel + Filament",
+              d: "PHP. Beheerschermen voor klanten, projecten en tarieven krijg je bijna gratis.",
+              c: ["heel snel met CRUD en rapportage", "mobiele invoer bouw je alsnog zelf", "makkelijker uit te besteden in NL"] }
+          ]
+        },
+        {
+          code: "A3", when: "nu", title: "Waar de data staat",
+          q: "Hosting en opslag — mede een AVG-vraag, want het gaat om uren van je collega's.",
+          options: [
+            { id: "a", t: "Europese cloud", rec: true,
+              d: "Vercel of vergelijkbaar voor de app, database in een EU-regio (Frankfurt of Amsterdam).",
+              c: ["€ 0–40 per maand", "back-ups en beveiliging geregeld", "verwerkersovereenkomst afsluiten"] },
+            { id: "b", t: "Nederlandse hoster",
+              d: "Alles bij één Nederlandse partij op een eigen server.",
+              c: ["€ 15–60 per maand", "kortste lijn bij vragen", "je regelt zelf updates en back-ups"] },
+            { id: "c", t: "Op je eigen server",
+              d: "In eigen beheer draaien, bijvoorbeeld op kantoor of een eigen VPS.",
+              c: ["volledige controle", "jij bent de storingsdienst", "van buiten bereikbaar maken kost werk"] }
+          ]
+        },
+        {
+          code: "A4", when: "nu", title: "Hoe jullie inloggen",
+          q: "Vijf keer per dag even iets wegschrijven moet niet op een wachtwoordscherm stuklopen.",
+          options: [
+            { id: "a", t: "Google- of Microsoft-account", rec: true,
+              d: "Inloggen met het account dat je al voor je mail gebruikt. Eén tik, blijft ingelogd.",
+              c: ["geen wachtwoorden te beheren", "medewerker uit dienst = account uit", "vereist dat iedereen zo'n account heeft"] },
+            { id: "b", t: "Inloglink per mail",
+              d: "Mailadres invullen, link aanklikken, binnen. Geen wachtwoord.",
+              c: ["werkt voor iedereen", "wachten op een mail bij nieuw apparaat"] },
+            { id: "c", t: "Mailadres en wachtwoord",
+              d: "Klassiek, met tweestapsverificatie erbij.",
+              c: ["vertrouwd voor iedereen", "wachtwoorden vergeten en resetten"] }
+          ]
+        },
+        {
+          code: "A5", when: "nu", title: "Mobiel: hoe ver ga je",
+          q: "Je zei dat het op mobiel én desktop perfect moet zijn. Dat kan op drie manieren.",
+          options: [
+            { id: "a", t: "Webapp met icoon op je beginscherm", rec: true,
+              d: "Eén codebase, twee lay-outs. Je zet hem op je beginscherm en het voelt als een app.",
+              c: ["geen appstore, updates direct live", "geen achtergrond-GPS", "offline mogelijk maar beperkt"] },
+            { id: "b", t: "Webapp nu, echte app later",
+              d: "Begin als hierboven; bouw in fase 4 een echte app op dezelfde database.",
+              c: ["+2–3 weken wanneer je het doet", "offline en widgets worden mogelijk", "twee dingen te onderhouden"] },
+            { id: "c", t: "Meteen een echte app erbij",
+              d: "Vanaf het begin een app naast de webversie.",
+              c: ["+3–4 weken vooraf", "appstore-proces bij elke wijziging", "beste mobiele gevoel"] }
+          ],
+          note: "Optie a haalt bijna alles van wat je van een app verwacht — de dingen die het écht niet kan zijn achtergrond-GPS voor automatische ritregistratie en volledige offline-invoer. Bekijk C3 voordat je hier kiest."
+        }
+      ]
+    },
+    {
+      id: "B", title: "Structuur en geld", intro: "",
+      decisions: [
+        {
+          code: "B1", when: "nu", title: "Hoe diep de projectstructuur gaat",
+          q: "Je noemde verschillende onderdelen van een project. De vraag is hoeveel niveaus.",
+          options: [
+            { id: "a", t: "Klant → project → onderdeel", rec: true,
+              d: "Drie niveaus. Een onderdeel is bijvoorbeeld een fase, een deelopdracht of een werksoort.",
+              c: ["past op bijna elk adviestraject", "kort keuzelijstje bij het invoeren", "onderdelen kopieerbaar tussen projecten"] },
+            { id: "b", t: "Ook nog subtaken eronder",
+              d: "Vier niveaus, voor als een onderdeel zelf weer uiteenvalt.",
+              c: ["fijnmaziger terugkijken", "meer klikken bij het schrijven", "mensen kiezen dan het verkeerde niveau"] },
+            { id: "c", t: "Onderdeel plus een losse werksoort",
+              d: "Drie niveaus, plus een tweede label naast het onderdeel: advies, uitvoering, reistijd, overleg.",
+              c: ["analyse over projecten heen mogelijk", "één extra veld per urenregel", "goede basis voor tarief per werksoort"] }
+          ],
+          note: "Optie c is stiekem krachtig: je kunt dan zowel 'wat kostte fase 2' als 'hoeveel reistijd maken we in totaal' beantwoorden. Wel één extra keuze bij het schrijven."
+        },
+        {
+          code: "B2", when: "nu", title: "Hoe het verkooptarief bepaald wordt",
+          q: "De kern uit deel 1. Hoeveel van die zoekvolgorde wil je?",
+          options: [
+            { id: "a", t: "Volledige zoekvolgorde", rec: true,
+              d: "Alle zeven niveaus uit het diagram, elk met een geldig-vanaf-datum.",
+              c: ["+4–6 dagen bouwen", "elk denkbaar geval past erin", "vraagt een goed scherm om het uit te leggen"] },
+            { id: "b", t: "Verkorte volgorde",
+              d: "Drie niveaus: tarief op onderdeel, anders op project, anders standaard van de klant.",
+              c: ["+1–2 dagen bouwen", "dekt verreweg de meeste gevallen", "geen apart tarief per rol"] },
+            { id: "c", t: "Tarief per project × rol",
+              d: "Elk project een tariefkaart per rol, en verder niets.",
+              c: ["het simpelst uit te leggen", "meerwerk tegen afwijkend tarief moet je apart projectje maken"] }
+          ],
+          note: "Het verschil zit in wat je later kunt: van b naar a is ongeveer twee dagen extra werk. Van c naar a is opnieuw nadenken over al je bestaande projecten."
+        },
+        {
+          code: "B3", when: "nu", title: "Hoe je de interne kostprijs bepaalt",
+          q: "De andere helft van de marge: wat kost een uur van iemand jullie werkelijk?",
+          options: [
+            { id: "a", t: "Vast bedrag per medewerker per jaar", rec: true,
+              d: "Eén kostprijs per persoon, met een ingangsdatum. Zelf te berekenen of gewoon te schatten.",
+              c: ["één getal per persoon per jaar", "goed genoeg voor sturen op marge", "opslag in juli = nieuwe regel"] },
+            { id: "b", t: "Kostprijs uit brutoloon berekenen",
+              d: "Brutoloon plus werkgeverslasten plus overhead, gedeeld door declarabele uren.",
+              c: ["onderbouwd cijfer", "je moet overhead en declarabiliteit vaststellen", "jaarlijks herijken"] },
+            { id: "c", t: "Eén tarief voor iedereen",
+              d: "Eén gemiddelde kostprijs voor het hele team.",
+              c: ["nu meteen klaar", "marge per medewerker wordt betekenisloos"] },
+            { id: "d", t: "Kostprijs per project",
+              d: "Per persoon per project een eigen kostprijs, bijvoorbeeld bij inhuur.",
+              c: ["nodig als je freelancers inzet", "meer bij te houden per project"] }
+          ],
+          note: "Werk je met freelancers of onderaannemers, dan wordt d praktisch onvermijdelijk — hun inkooptarief verschilt per opdracht. Je kunt a en d combineren: a als standaard, d als uitzondering."
+        },
+        {
+          code: "B4", when: "nu", title: "Wanneer bedragen vastgezet worden",
+          q: "Wat gebeurt er met de bedragen op oude uren als een tarief verandert?",
+          options: [
+            { id: "a", t: "Bevriezen bij goedkeuring", rec: true,
+              d: "Zolang een week nog niet is goedgekeurd zijn bedragen levend; daarna staan ze vast.",
+              c: ["fouten in tarieven zijn nog te herstellen", "gefactureerd blijft gefactureerd", "past bij D1"] },
+            { id: "b", t: "Meteen vastzetten",
+              d: "Het tarief wordt bij het invoeren op de regel gezet en verandert nooit meer.",
+              c: ["altijd traceerbaar", "een verkeerd tarief moet je op elke regel repareren"] },
+            { id: "c", t: "Altijd opnieuw berekenen",
+              d: "Bedragen worden steeds live berekend, ook voor oude regels.",
+              c: ["één plek om iets te corrigeren", "een tariefverhoging verandert je omzet van vorig jaar"] }
+          ]
+        },
+        {
+          code: "B5", when: "later", title: "Wat voor afspraken je met klanten maakt",
+          q: "Nodig zodra je facturen wilt maken; niet nodig om uren te schrijven.",
+          options: [
+            { id: "a", t: "Alleen nacalculatie", rec: true,
+              d: "Uren maal tarief. Het eenvoudigste model.",
+              c: ["nu al klaar", "geen apart budgetbeheer nodig"] },
+            { id: "b", t: "Nacalculatie en vaste prijs",
+              d: "Ook projecten met een vaste som. Uren blijven schrijven, maar bepalen niet de factuur.",
+              c: ["+3–4 dagen", "toont je effectieve uurtarief: som gedeeld door bestede uren", "waarschuwing bij dreigende overschrijding"] },
+            { id: "c", t: "Ook strippenkaart of abonnement",
+              d: "Vooraf ingekochte uren die aflopen, of een vast bedrag per maand.",
+              c: ["+4–6 dagen", "saldo bijhouden en tonen aan de klant", "aparte regels voor uren buiten de kaart"] }
+          ]
+        }
+      ]
+    },
+    {
+      id: "C", title: "Registreren", intro: "",
+      decisions: [
+        {
+          code: "C1", when: "nu", title: "Hoe je uren invoert",
+          q: "Dit bepaalt of de tool gebruikt wordt of niet. Belangrijkste beslissing van het hele document.",
+          options: [
+            { id: "a", t: "Dagweergave mobiel, weekraster desktop", rec: true,
+              d: "Op je telefoon per dag blokken toevoegen met je favoriete projecten bovenaan; op je laptop een raster waarin je een hele week in één scherm invult.",
+              c: ["+1 week ten opzichte van alleen dagweergave", "past bij hoe mensen echt schrijven", "beide schermen delen dezelfde logica"] },
+            { id: "b", t: "Alleen dagweergave",
+              d: "Overal hetzelfde scherm: kies dag, tik project, vul tijd in.",
+              c: ["snelst te bouwen", "een week achteraf invullen is 20 keer tikken"] },
+            { id: "c", t: "Met start-stopknop erbij",
+              d: "Bovenop je keuze een lopende timer die je aan- en uitzet.",
+              c: ["+3–4 dagen", "goed als je aaneengesloten werkt", "vergeten uit te zetten is de klassieke fout"] },
+            { id: "d", t: "Alleen weekraster",
+              d: "Eén raster, ook op mobiel.",
+              c: ["één scherm te bouwen", "op een telefoon altijd behelpen"] }
+          ],
+          note: "Wat het meeste scheelt, ongeacht je keuze: 'vorige week kopiëren' en een lijstje favoriete project-onderdeelcombinaties. Dat zit bij elke optie ingebouwd."
+        },
+        {
+          code: "C2", when: "nu", title: "In welke stappen tijd geschreven wordt",
+          q: "Klein, maar het zit in elk scherm en in elke factuur.",
+          options: [
+            { id: "a", t: "Kwartieren", rec: true,
+              d: "Invoeren in stappen van 15 minuten. Snelle knoppen voor 15, 30, 60 minuten.",
+              c: ["snelst in te voeren", "gangbaar op urenspecificaties", "iets van afronding in je nadeel of voordeel"] },
+            { id: "b", t: "Op de minuut",
+              d: "Vrije invoer, ook 07:20 tot 08:35.",
+              c: ["exact", "trager op mobiel", "afronden gebeurt dan pas op de factuur"] },
+            { id: "c", t: "Halve uren",
+              d: "Stappen van 30 minuten.",
+              c: ["allersnelst", "te grof voor korte klussen"] }
+          ]
+        },
+        {
+          code: "C3", when: "nu", title: "Hoe kilometers erin komen",
+          q: "Je wilt bezoeken en kilometers declareren. Dit is de vraag hoeveel moeite dat per rit kost.",
+          options: [
+            { id: "a", t: "Vaste afstand per klant, één tik", rec: true,
+              d: "Je legt per klantadres eenmalig de afstand vanaf kantoor of thuis vast. Daarna is een bezoek: klant kiezen, retour aanvinken, klaar.",
+              c: ["+2–3 dagen", "twee tikken per bezoek", "afwijkende ritten handmatig aanpasbaar"] },
+            { id: "b", t: "Adres naar adres berekenen",
+              d: "Vertrek- en aankomstadres invullen, de afstand wordt automatisch berekend en opgeslagen.",
+              c: ["+3–5 dagen", "kosten routeservice: enkele euro's per maand", "goed voor onregelmatige routes"] },
+            { id: "c", t: "Gewoon zelf invullen",
+              d: "Datum, van, naar, kilometers, doel. Handmatig.",
+              c: ["nu al klaar", "meeste werk per rit", "meeste kans op vergeten"] },
+            { id: "d", t: "Rit meten met GPS",
+              d: "Startknop bij vertrek, stopknop bij aankomst, de app meet de afstand.",
+              c: ["vraagt een echte app (zie A5)", "AVG-gevoelig: locatie van collega's", "wel de meest sluitende registratie"] }
+          ],
+          note: "Optie a plus handmatige correctie dekt in de praktijk bijna alles, tegen de laagste drempel. Rijd je in een auto van de zaak en heb je een sluitende rittenregistratie nodig, overleg dan eerst met je boekhouder welke velden verplicht zijn — dat raakt vooral b en d."
+        },
+        {
+          code: "C4", when: "later", title: "Is een bezoek iets aparts?",
+          q: "Je noemde bezoeken naast kilometers. Vraag is of dat een eigen ding is.",
+          options: [
+            { id: "a", t: "Een bezoek is een rit met een doel", rec: true,
+              d: "Eén record met een reden erbij: klantbezoek, locatiebezoek, overleg. Bezoekaantallen komen uit de ritten.",
+              c: ["niets extra's te bouwen", "aantal bezoeken per klant direct zichtbaar"] },
+            { id: "b", t: "Bezoek als eigen registratie",
+              d: "Een apart bezoekrecord met aankomst- en vertrektijd, gesprekspartner en notities; rit en uren hangen eraan.",
+              c: ["+4–5 dagen", "geeft een bezoekverslag per klant", "meer invulwerk per bezoek"] },
+            { id: "c", t: "Bezoek als vaste vergoeding",
+              d: "Naast kilometers een vast bedrag of aantal uren per bezoek dat je doorbelast.",
+              c: ["+2 dagen", "alleen zinvol als je zo factureert"] }
+          ]
+        },
+        {
+          code: "C5", when: "later", title: "Onkosten en bonnetjes",
+          q: "Parkeren, treinkaartjes, lunch met een klant. Wel of niet in dezelfde tool?",
+          options: [
+            { id: "a", t: "Pas in fase 4", rec: true,
+              d: "Eerst uren en kilometers goed krijgen; onkosten daarna.",
+              c: ["houdt fase 1 klein", "tot dan blijft het zoals je het nu doet"] },
+            { id: "b", t: "Meteen erbij, met foto",
+              d: "Bonnetje fotograferen, bedrag en btw invullen, aan een project hangen.",
+              c: ["+4–6 dagen", "vraagt bestandsopslag", "alles wat je declareert op één plek"] },
+            { id: "c", t: "Nooit; dat blijft bij de boekhouding",
+              d: "Onkosten horen bij je boekhoudpakket, niet hier.",
+              c: ["geen werk", "doorbelaste kosten ontbreken in je marge"] }
+          ]
+        }
+      ]
+    },
+    {
+      id: "D", title: "Proces en rechten", intro: "",
+      decisions: [
+        {
+          code: "D1", when: "nu", title: "Moeten uren goedgekeurd worden",
+          q: "Met collega's erbij: kijkt er iemand naar voordat het de deur uit gaat?",
+          options: [
+            { id: "a", t: "Week indienen, jij keurt goed", rec: true,
+              d: "Vrijdag dient iedereen zijn week in; jij ziet een lijstje en keurt goed of stuurt terug met een opmerking.",
+              c: ["+3–4 dagen", "één moment waarop cijfers kloppen", "sluit aan op het bevriezen uit B4"] },
+            { id: "b", t: "Geen goedkeuring",
+              d: "Wat er staat, staat er. Corrigeren mag altijd.",
+              c: ["niets te bouwen", "je ontdekt fouten pas bij het factureren"] },
+            { id: "c", t: "Alleen vergrendelen per maand",
+              d: "Geen goedkeuring, maar je zet de maand op slot als je gefactureerd hebt.",
+              c: ["+1 dag", "voorkomt schuivende cijfers zonder extra ritueel"] }
+          ]
+        },
+        {
+          code: "D2", when: "nu", title: "Wie ziet welke bedragen",
+          q: "De interne kostprijs zegt iets over wat iemand verdient. Dit wil je vooraf goed zetten.",
+          options: [
+            { id: "a", t: "Drie rollen", rec: true,
+              d: "Medewerker ziet eigen uren zonder bedragen. Projectleider ziet uren en budget van eigen projecten, geen kostprijs. Eigenaar ziet alles.",
+              c: ["+2–3 dagen", "veilige standaard", "per persoon uit te breiden"] },
+            { id: "b", t: "Twee rollen",
+              d: "Medewerker en eigenaar. Alles wat met geld te maken heeft alleen voor jou.",
+              c: ["+1 dag", "geen projectleider-inzicht"] },
+            { id: "c", t: "Iedereen ziet alles",
+              d: "Volledig open, inclusief marge.",
+              c: ["niets te bouwen", "alleen als jullie zo werken en dat expliciet is afgesproken"] }
+          ]
+        },
+        {
+          code: "D3", when: "later", title: "Wat er gebeurt na facturatie",
+          q: "Iemand ontdekt in mei een fout in maart, die al gefactureerd is.",
+          options: [
+            { id: "a", t: "Correctieregel maken", rec: true,
+              d: "Het origineel blijft staan, er komt een tegenboeking bij in de huidige periode.",
+              c: ["+2 dagen", "je administratie blijft kloppen met je facturen"] },
+            { id: "b", t: "Alleen jij kunt openbreken",
+              d: "De periode gaat op slot; jij kunt hem tijdelijk openen.",
+              c: ["+1 dag", "eenvoudig, maar je facturen en uren gaan uit elkaar lopen"] },
+            { id: "c", t: "Altijd aanpasbaar",
+              d: "Geen slot.",
+              c: ["niets te bouwen", "rapportages van vorige maanden veranderen"] }
+          ]
+        }
+      ]
+    },
+    {
+      id: "E", title: "Wat er uitkomt", intro: "",
+      decisions: [
+        {
+          code: "E1", when: "nu", title: "Wat je wilt kunnen zien",
+          q: "Welke vragen moet de tool beantwoorden zonder dat je exporteert?",
+          options: [
+            { id: "a", t: "Projectuitputting en marge", rec: true,
+              d: "Per project: besteed versus budget, omzet, kosten, marge. Per klant en per maand hetzelfde. Doorklikken naar de urenregels.",
+              c: ["+4–5 dagen", "beantwoordt je oorspronkelijke vraag", "goede basis om later op uit te breiden"] },
+            { id: "b", t: "Alleen urenoverzichten",
+              d: "Uren per project, klant, persoon en periode. Bedragen alleen in de export.",
+              c: ["+2 dagen", "marge reken je in Excel"] },
+            { id: "c", t: "Ook declarabiliteit en prognose",
+              d: "Bovenop a: welk deel van je uren declarabel is per persoon, en hoe volle projecten de komende weken zijn.",
+              c: ["+5–7 dagen", "sturingsinformatie voor een groeiend team", "vraagt dat iedereen ook niet-declarabele uren schrijft"] }
+          ]
+        },
+        {
+          code: "E2", when: "later", title: "Hoe het bij je boekhouding komt",
+          q: "Van goedgekeurde uren naar een factuur.",
+          options: [
+            { id: "a", t: "Export naar Excel of CSV", rec: true,
+              d: "Factuurvoorstel per klant downloaden en zelf inlezen of overtypen.",
+              c: ["+1–2 dagen", "werkt met elk boekhoudpakket", "handwerk per factuurronde"] },
+            { id: "b", t: "Rechtstreekse koppeling",
+              d: "Concept-facturen automatisch aanmaken in Moneybird, e-Boekhouden, Exact of Snelstart.",
+              c: ["+5–8 dagen per pakket", "geen overtypwerk meer", "koppeling breekt weleens bij updates"] },
+            { id: "c", t: "Facturen in de tool zelf",
+              d: "Zelf facturen maken en versturen vanuit de tool.",
+              c: ["+2–3 weken", "btw, nummering en herinneringen zelf bouwen", "meestal niet de moeite waard"] }
+          ],
+          note: "Zeg even welk boekhoudpakket je gebruikt — bij Moneybird en e-Boekhouden is de koppeling in optie b beduidend eenvoudiger dan bij de andere twee."
+        },
+        {
+          code: "E3", when: "later", title: "Wat de klant te zien krijgt",
+          q: "Klanten die willen weten waar die uren aan opgingen.",
+          options: [
+            { id: "a", t: "Specificatie als PDF", rec: true,
+              d: "Per factuur een nette bijlage: uren per onderdeel, met of zonder omschrijvingen, met of zonder tarieven.",
+              c: ["+2–3 dagen", "per klant instelbaar hoeveel detail", "scheelt discussie achteraf"] },
+            { id: "b", t: "Meekijklink voor de klant",
+              d: "Een link waarmee de klant live de stand van zijn project ziet.",
+              c: ["+1 week", "je moet dan wel elke dag netjes schrijven", "sterk verkoopargument"] },
+            { id: "c", t: "Niets",
+              d: "Alleen de factuur.",
+              c: ["geen werk"] }
+          ]
+        }
+      ]
+    }
+  ];
+
+  var TOTAL = 0, NOW_LIST = [];
+  GROUPS.forEach(function (g) {
+    g.decisions.forEach(function (d) {
+      TOTAL++;
+      if (d.when === "nu") NOW_LIST.push(d);
+    });
+  });
+
+  var picks = {};
+  var db = null;
+
+  /* ---------- rendering ---------- */
+
+  function el(tag, cls, txt) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (txt != null) n.textContent = txt;
+    return n;
+  }
+
+  function renderRegister() {
+    var root = document.getElementById("register");
+    GROUPS.forEach(function (g) {
+      var wrapEl = el("div", "group");
+      var head = el("div", "group-head");
+      head.appendChild(el("span", "eyebrow", "Groep " + g.id));
+      head.appendChild(el("h3", null, g.title));
+      head.appendChild(el("span", "count", g.decisions.length + " beslissingen"));
+      wrapEl.appendChild(head);
+
+      g.decisions.forEach(function (d) {
+        var card = el("article", "decision");
+        card.id = "d-" + d.code;
+
+        var rail = el("div", "d-rail");
+        rail.appendChild(el("span", "d-code", d.code));
+        rail.appendChild(el("span", "tag " + (d.when === "nu" ? "tag-now" : "tag-late"),
+          d.when === "nu" ? "nu" : "later"));
+        card.appendChild(rail);
+
+        var body = el("div", "d-body");
+        body.appendChild(el("h4", null, d.title));
+        body.appendChild(el("p", "d-q", d.q));
+
+        var opts = el("div", "options");
+        d.options.forEach(function (o) {
+          var b = el("button", "opt");
+          b.type = "button";
+          b.setAttribute("aria-pressed", "false");
+          b.dataset.code = d.code;
+          b.dataset.opt = o.id;
+
+          b.appendChild(el("span", "opt-mark", o.id));
+
+          var main = el("div", "opt-main");
+          var title = el("div", "opt-title");
+          title.appendChild(document.createTextNode(o.t));
+          if (o.rec) title.appendChild(el("span", "rec", "aanbevolen"));
+          main.appendChild(title);
+          main.appendChild(el("p", "opt-desc", o.d));
+          if (o.c && o.c.length) {
+            var cost = el("div", "opt-cost");
+            o.c.forEach(function (c) { cost.appendChild(el("span", null, c)); });
+            main.appendChild(cost);
+          }
+          b.appendChild(main);
+          b.addEventListener("click", function () { choose(d.code, o.id); });
+          opts.appendChild(b);
+        });
+        body.appendChild(opts);
+
+        if (d.note) {
+          var note = el("div", "d-note");
+          note.appendChild(el("b", null, "Let op — "));
+          note.appendChild(document.createTextNode(d.note));
+          body.appendChild(note);
+        }
+
+        card.appendChild(body);
+        wrapEl.appendChild(card);
+      });
+
+      root.appendChild(wrapEl);
+    });
+  }
+
+  function renderNuLijst() {
+    var root = document.getElementById("nulijst");
+    NOW_LIST.forEach(function (d) {
+      var row = el("div", "check");
+      var a = el("a", "c", d.code);
+      a.href = "#d-" + d.code;
+      row.appendChild(a);
+      row.appendChild(el("span", "q", d.title));
+      root.appendChild(row);
+    });
+  }
+
+  /* ---------- state ---------- */
+
+  function paint() {
+    var buttons = document.querySelectorAll(".opt");
+    for (var i = 0; i < buttons.length; i++) {
+      var b = buttons[i];
+      var on = picks[b.dataset.code] === b.dataset.opt;
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    }
+    var n = Object.keys(picks).length;
+    document.getElementById("prog-n").textContent = n + "/" + TOTAL;
+    document.getElementById("prog-bar").style.width = (n / TOTAL * 100) + "%";
+  }
+
+  function choose(code, opt) {
+    if (picks[code] === opt) delete picks[code];
+    else picks[code] = opt;
+    paint();
+    persist(code);
+  }
+
+  function localSave() {
+    try { localStorage.setItem("declaratietool-keuzes", JSON.stringify(picks)); } catch (e) {}
+  }
+
+  function localLoad() {
+    try {
+      var raw = localStorage.getItem("declaratietool-keuzes");
+      if (raw) picks = JSON.parse(raw) || {};
+    } catch (e) { picks = {}; }
+  }
+
+  function persist(code) {
+    localSave();
+    if (!db) return;
+    var ref = db.doc("keuzes/" + code);
+    var p = picks[code] ? ref.set({ optie: picks[code], tijd: new Date().toISOString() })
+                        : ref.delete();
+    p.catch(function () { setSync(false, "niet gesynchroniseerd"); });
+  }
+
+  function setSync(live, txt) {
+    document.getElementById("sync-dot").classList.toggle("live", !!live);
+    document.getElementById("sync-txt").textContent = txt;
+  }
+
+  function summaryText() {
+    var lines = ["Mijn keuzes voor de declaratietool:", ""];
+    GROUPS.forEach(function (g) {
+      g.decisions.forEach(function (d) {
+        var pick = picks[d.code];
+        if (!pick) return;
+        var o = null;
+        d.options.forEach(function (x) { if (x.id === pick) o = x; });
+        if (o) lines.push(d.code + " " + d.title + " → " + o.id + ") " + o.t);
+      });
+    });
+    var open = [];
+    NOW_LIST.forEach(function (d) { if (!picks[d.code]) open.push(d.code); });
+    if (open.length) {
+      lines.push("");
+      lines.push("Nog niet gekozen (wel nodig om te starten): " + open.join(", "));
+    }
+    return lines.join("\n");
+  }
+
+  /* ---------- buttons ---------- */
+
+  document.getElementById("btn-copy").addEventListener("click", function () {
+    var txt = summaryText();
+    var btn = this;
+    var spans = btn.querySelectorAll("span");
+    var done = function (ok) {
+      var msg = ok ? "Gekopieerd" : "Mislukt";
+      spans[0].textContent = msg;
+      spans[1].textContent = msg;
+      setTimeout(function () {
+        spans[0].textContent = "Kopieer mijn keuzes";
+        spans[1].textContent = "Kopieer";
+      }, 1800);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(function () { done(true); }, function () { done(false); });
+    } else {
+      var ta = document.createElement("textarea");
+      ta.value = txt;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = false;
+      try { ok = document.execCommand("copy"); } catch (e) {}
+      document.body.removeChild(ta);
+      done(ok);
+    }
+  });
+
+  document.getElementById("btn-rec").addEventListener("click", function () {
+    GROUPS.forEach(function (g) {
+      g.decisions.forEach(function (d) {
+        d.options.forEach(function (o) { if (o.rec) picks[d.code] = o.id; });
+      });
+    });
+    paint();
+    localSave();
+    if (db) {
+      GROUPS.forEach(function (g) {
+        g.decisions.forEach(function (d) {
+          if (picks[d.code]) {
+            db.doc("keuzes/" + d.code)
+              .set({ optie: picks[d.code], tijd: new Date().toISOString() })
+              .catch(function () {});
+          }
+        });
+      });
+    }
+  });
+
+  /* ---------- boot ---------- */
+
+  document.getElementById("m-total").textContent = TOTAL;
+  document.getElementById("m-now").textContent = NOW_LIST.length;
+  document.getElementById("m-late").textContent = TOTAL - NOW_LIST.length;
+  document.getElementById("h-total").textContent = TOTAL;
+
+  renderRegister();
+  renderNuLijst();
+  localLoad();
+  paint();
+  setSync(false, "lokaal bewaard");
+
+  if (window.claude && typeof window.claude.use === "function") {
+    window.claude.use("db").then(function (store) {
+      if (!store) return;
+      db = store;
+      setSync(true, "gedeeld met je collega's");
+      var first = true;
+      db.collection("keuzes").onSnapshot(function (snap) {
+        var next = {};
+        snap.docs.forEach(function (doc) {
+          var data = doc.data();
+          if (data && data.optie) next[doc.id] = data.optie;
+        });
+        // Eerste levering: een lege gedeelde opslag mag keuzes die al op dit
+        // apparaat staan niet wissen — die worden juist omhoog geduwd.
+        if (first) {
+          first = false;
+          var mine = Object.keys(picks);
+          if (mine.length && !Object.keys(next).length) {
+            mine.forEach(function (code) { persist(code); });
+            return;
+          }
+        }
+        picks = next;
+        localSave();
+        paint();
+      }, function () {
+        db = null;
+        setSync(false, "lokaal bewaard");
+      });
+    }).catch(function () {});
+  }
+})();
+</script>
