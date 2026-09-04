@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-type Icoon = "uren" | "ritten" | "week" | "beheer";
+type Icoon = "uren" | "ritten" | "week" | "inzicht" | "beheer";
 
 type Item = { href: string; label: string; icoon: Icoon };
 
@@ -14,6 +14,8 @@ const PADEN: Record<Icoon, string> = {
   ritten: "M5 21 8 3M19 21 16 3M12 5v3M12 11v3M12 17v3",
   // Kalender
   week: "M4 8h16M4 5h16v15H4zM8 3v4M16 3v4",
+  // Staafjes
+  inzicht: "M4 20v-7M10 20V6M16 20v-10M3 20h18",
   // Schuifregelaars
   beheer: "M5 6h14M5 12h14M5 18h14M9 4v4M15 10v4M9 16v4",
 };

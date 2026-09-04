@@ -139,6 +139,33 @@ join klant k   on k.code = v.klantcode
 join project p on p.code = v.projectcode
 where not exists (select 1 from rit limit 1);
 
+-- Sam heeft twee weken geleden ingediend en wacht op goedkeuring, zodat het
+-- goedkeurscherm iets te doen heeft.
+with basis as (select (date_trunc('week', current_date) - interval '14 days')::date as maandag)
+insert into urenregel (medewerker_id, onderdeel_id, datum, minuten, omschrijving, status)
+select 'bbbbbbbb-0000-0000-0000-000000000003', v.onderdeel::uuid, b.maandag + v.dag, v.minuten, v.oms, 'ingediend'
+from basis b, (values
+  ('eeeeeeee-0000-0000-0000-000000000002', 0, 420, 'Toetsing schetsontwerp'),
+  ('eeeeeeee-0000-0000-0000-000000000005', 1, 480, 'Veldwerk met Petra'),
+  ('eeeeeeee-0000-0000-0000-000000000006', 2, 360, 'Rapportage dijkvak 3'),
+  ('eeeeeeee-0000-0000-0000-000000000004', 3, 60,  'Teamoverleg'),
+  ('eeeeeeee-0000-0000-0000-000000000002', 3, 300, 'Review varianten')
+) as v(onderdeel, dag, minuten, oms)
+where not exists (
+  select 1 from urenregel where medewerker_id = 'bbbbbbbb-0000-0000-0000-000000000003' and status = 'ingediend'
+);
+
+insert into weekstaat (medewerker_id, jaar, week, status, ingediend_op)
+select 'bbbbbbbb-0000-0000-0000-000000000003',
+       extract(isoyear from d)::int, extract(week from d)::int, 'ingediend', now() - interval '9 days'
+from (select (date_trunc('week', current_date) - interval '14 days')::date as d) s
+on conflict (medewerker_id, jaar, week) do nothing;
+
+update urenregel u set weekstaat_id = w.id
+from weekstaat w
+where u.medewerker_id = w.medewerker_id and u.status = 'ingediend' and u.weekstaat_id is null
+  and extract(isoyear from u.datum)::int = w.jaar and extract(week from u.datum)::int = w.week;
+
 -- De goedgekeurde week een weekstaat geven, zodat het scherm klopt.
 insert into weekstaat (medewerker_id, jaar, week, status, ingediend_op, beoordeeld_door, beoordeeld_op)
 select 'bbbbbbbb-0000-0000-0000-000000000002',

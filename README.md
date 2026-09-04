@@ -6,8 +6,10 @@ verkooptarieven naast interne kostprijs zodat de marge per project zichtbaar is.
 
 ## Status
 
-Fase 1 draait: inloggen, uren schrijven op mobiel en desktop, ritten en
-kilometers, week indienen, klanten en projecten beheren, export naar CSV.
+Fase 1 en 2 draaien: inloggen, uren schrijven op mobiel en desktop, ritten en
+kilometers, week indienen en goedkeuren, klanten, projecten, tarieven,
+kostprijzen en medewerkers beheren, inzicht in uren, omzet, marge en budget,
+export naar CSV.
 
 | | |
 |---|---|
@@ -53,9 +55,8 @@ onder meer de tariefzoekvolgorde en de afscherming, en ruimt daarna op.
 
 ## Volgende stap
 
-Fase 2 uit het keuzeplan: tarieven en kostprijzen beheren in de app zelf,
-marge-overzichten per klant en per maand, en goedkeuren van ingediende weken
-door de eigenaar. Het schema en de views daarvoor liggen er al.
+Fase 3 uit het keuzeplan: urenspecificatie als PDF voor de klant,
+factuurvoorstel per klant, en correctieregels na facturatie vanuit de app.
 
 Nog te beantwoorden: welk boekhoudpakket in gebruik is, en of er in een auto van
 de zaak gereden wordt. Zie het slot van `docs/besluiten.md`.

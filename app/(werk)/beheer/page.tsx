@@ -11,14 +11,21 @@ export default async function BeheerPagina() {
   const sessie = await vereisteSessie();
   if (!magBeheren(sessie.rechten)) redirect("/uren");
 
-  const klanten = await alsGebruiker(sessie.authUserId, (tx) => tx`
-    select k.id, k.naam, k.code, k.plaats, k.afstand_km::float8 as afstand_km,
-           k.actief,
-           (select count(*) from project p
-             where p.klant_id = k.id and p.status in ('concept','actief')) as projecten
-    from klant k
-    order by k.actief desc, k.naam
-  `);
+  const eigenaar = sessie.rechten === "eigenaar";
+  const [klanten, teBeoordelen] = await alsGebruiker(sessie.authUserId, async (tx) => [
+    await tx`
+      select k.id, k.naam, k.code, k.plaats, k.afstand_km::float8 as afstand_km,
+             k.actief,
+             (select count(*) from project p
+               where p.klant_id = k.id and p.status in ('concept','actief')) as projecten
+      from klant k
+      order by k.actief desc, k.naam
+    `,
+    eigenaar
+      ? await tx`select count(*) as n from weekstaat where status = 'ingediend'`
+      : [{ n: 0 }],
+  ]);
+  const openStaten = Number(teBeoordelen[0]?.n ?? 0);
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-5 md:px-8 md:py-8">
@@ -29,9 +36,15 @@ export default async function BeheerPagina() {
       </p>
 
       <nav className="mt-4 flex flex-wrap gap-2">
-        <Link href="/export" className="knop knop-stil">
-          Uren exporteren
-        </Link>
+        {eigenaar && (
+          <Link href="/goedkeuren" className={`knop ${openStaten ? "knop-primair" : "knop-stil"}`}>
+            Goedkeuren
+            {openStaten > 0 && <span className="cijfers rounded bg-surface/25 px-1.5 text-xs">{openStaten}</span>}
+          </Link>
+        )}
+        <Link href="/beheer/tarieven" className="knop knop-stil">Tarieven</Link>
+        {eigenaar && <Link href="/beheer/medewerkers" className="knop knop-stil">Medewerkers</Link>}
+        <Link href="/export" className="knop knop-stil">Exporteren</Link>
       </nav>
 
       <h2 className="mt-8 mb-2 text-lg font-semibold">Klanten</h2>

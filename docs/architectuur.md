@@ -72,7 +72,33 @@ account.
 | `/ritten` | Ritten en bezoeken; afstand komt van de klant (C3a) |
 | `/week` | Weekstaat indienen en terugtrekken (D1a) |
 | `/beheer` | Klanten, projecten en projectonderdelen |
+| `/beheer/tarieven` | Verkooptarieven per niveau, functies, kilometervergoeding (B2a) |
+| `/beheer/medewerkers` | Medewerkers, rechten en kostprijs per periode (B3a, D2a) |
+| `/goedkeuren` | Ingediende weken beoordelen; goedkeuren bevriest de bedragen (D1a, B4a) |
+| `/inzicht` | Uren, omzet, kosten, marge en budget per periode (E1a) |
 | `/export` → `/api/export` | CSV van uren of ritten (E2a) |
+
+## Inzicht en grafieken
+
+De cijfers komen uit de afgeschermde views, dus dezelfde pagina toont een
+medewerker zijn uren en declarabiliteit, een projectleider daarbovenop omzet,
+en de eigenaar ook kosten en marge. De kolommen en het heldencijfer schakelen
+mee: waar geen omzet is, tonen ze uren.
+
+De grafieken zijn inline SVG, op de server gerenderd. De twee reeks­kleuren zijn
+niet de huisstijlgroen — die zit onder de chromadrempel en leest in een staaf
+als grijs — maar een groen-blauwpaar dat met `validate_palette.js` uit de
+dataviz-richtlijnen is gecontroleerd op kleurenblindheid en contrast, apart voor
+licht en donker. De budgetmeter gebruikt statuskleuren en zet er altijd een woord
+naast, want kleur alleen is voor een deel van de lezers geen signaal. Elke grafiek
+heeft een tabelversie eronder.
+
+## Collega's toevoegen
+
+De eigenaar maakt een medewerker aan met naam en e-mailadres. Logt er daarna
+iemand in met precies dat adres, dan koppelt `huidigeSessie()` het account
+eenmalig aan die rij. Er komt geen SQL aan te pas; wie niet is aangemaakt komt
+ook met een geldig account niet binnen.
 
 Het weekraster stuurt bij opslaan alleen de cellen die veranderd zijn; anders
 zou elke opslag zeven dagen maal het aantal regels aan schrijfacties kosten. Dat

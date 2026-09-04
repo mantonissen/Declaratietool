@@ -18,6 +18,16 @@
   --warn: #8a5a0b;
   --warn-bg: #f6eddb;
   --danger: #9a2f2f;
+
+  /* Grafiekreeksen: gevalideerd op kleurenblindheid en contrast tegen het
+     witte vlak (validate_palette.js). Niet de huisstijlgroen: die zit onder
+     de chromadrempel en leest in een staaf als grijs. */
+  --serie-1: #0d8a63;
+  --serie-2: #2a78d6;
+  /* Statuskleuren, vast en nooit als reeks gebruikt; altijd met tekst erbij. */
+  --status-goed: #0ca30c;
+  --status-let-op: #fab219;
+  --status-kritiek: #d03b3b;
   color-scheme: light;
 }
 
@@ -37,9 +47,33 @@
     --warn: #d6a44a;
     --warn-bg: #2a2214;
     --danger: #e08585;
+    /* Zelfde tinten, gestapt voor het donkere vlak; apart gevalideerd. */
+    --serie-1: #199e70;
+    --serie-2: #3987e5;
     color-scheme: dark;
   }
 }
+
+/* ---- grafieken ---- */
+.serie-1 { fill: var(--serie-1); }
+.serie-2 { fill: var(--serie-2); }
+.serie-1-lijn { stroke: var(--serie-1); }
+.serie-2-lijn { stroke: var(--serie-2); }
+.grafiek-raster { stroke: var(--line); stroke-width: 1; }
+.grafiek-as { stroke: var(--line-2); stroke-width: 1; }
+.grafiek-tekst { fill: var(--muted); font-family: var(--font-mono); font-size: 11px; }
+.grafiek-tekst-ink { fill: var(--ink-2); font-family: var(--font-mono); font-size: 11px; }
+.grafiek-groep .grafiek-vlak { fill: transparent; }
+.grafiek-groep:hover .grafiek-vlak,
+.grafiek-groep:focus-visible .grafiek-vlak { fill: var(--surface-2); }
+.grafiek-groep:hover rect.staaf,
+.grafiek-groep:focus-visible rect.staaf { opacity: .82; }
+.grafiek-groep:focus-visible { outline: none; }
+.meter { height: 8px; border-radius: 4px; overflow: hidden; background: var(--surface-2); }
+.meter > i { display: block; height: 100%; border-radius: 4px 0 0 4px; }
+.meter-goed > i { background: var(--accent); }
+.meter-let-op > i { background: var(--status-let-op); }
+.meter-kritiek > i { background: var(--status-kritiek); }
 
 @theme inline {
   --color-paper: var(--paper);

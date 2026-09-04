@@ -52,27 +52,21 @@ redirect-lijst.
 
 ## 4. Jezelf en je collega's toevoegen
 
-Inloggen lukt alleen voor wie in de tabel `medewerker` staat. Log eerst zelf
-een keer in (dat maakt je account aan in `auth.users`), en koppel dat dan in
-de SQL Editor:
+Inloggen lukt alleen voor wie in de tabel `medewerker` staat. De eerste
+eigenaar zet je eenmalig zelf in de SQL Editor, vóórdat je inlogt — het account
+wordt bij die eerste login automatisch gekoppeld op e-mailadres:
 
 ```sql
-insert into medewerker (auth_user_id, naam, email, functie_id, rechten)
-select u.id, 'Martijn Antonissen', u.email,
-       (select id from functie where naam = 'Partner'), 'eigenaar'
-from auth.users u
-where u.email = 'jouw@adres.nl';
+insert into medewerker (naam, email, functie_id, rechten)
+values ('Martijn Antonissen', 'jouw@adres.nl',
+        (select id from functie where naam = 'Partner'), 'eigenaar');
 ```
 
-Collega's op dezelfde manier, met `rechten` op `medewerker` of
-`projectleider`. Zet daarna per persoon een kostprijs (keuze B3):
+Daarna gaat alles via de app: onder *Beheer → Medewerkers* voeg je collega's
+toe met hun e-mailadres, functie en rechten, en zet je per persoon een kostprijs.
+Zodra een collega inlogt met dat adres, is het account gekoppeld.
 
-```sql
-insert into kostprijs (medewerker_id, bedrag_per_uur, geldig_vanaf)
-select id, 58.00, date '2026-01-01' from medewerker where email = 'collega@adres.nl';
-```
-
-Een scherm hiervoor hoort bij fase 2; tot die tijd is dit de weg.
+Tarieven en de kilometervergoeding staan onder *Beheer → Tarieven*.
 
 ## 5. Controleren
 

@@ -32,11 +32,12 @@ export function devModusActief(): boolean {
 }
 
 /** Het account dat is ingelogd, nog zonder te kijken wie dat intern is. */
-async function ingelogdAccount(): Promise<string | null> {
+async function ingelogdAccount(): Promise<{ id: string; email: string | null } | null> {
   const jar = await cookies();
 
   if (devModus()) {
-    return jar.get(DEV_COOKIE)?.value ?? null;
+    const id = jar.get(DEV_COOKIE)?.value;
+    return id ? { id, email: null } : null;
   }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -60,19 +61,25 @@ async function ingelogdAccount(): Promise<string | null> {
   // niet en is daarom hier niet goed genoeg.
   const { data, error } = await supabase.auth.getUser();
   if (error || !data.user) return null;
-  return data.user.id;
+  return { id: data.user.id, email: data.user.email ?? null };
 }
 
 /**
  * De ingelogde medewerker, of null. Wordt op elke beschermde pagina
  * aangeroepen; het opzoeken gebeurt zonder afscherming omdat op dat moment
  * nog niet vaststaat wie de gebruiker is.
+ *
+ * Een medewerker die door de eigenaar is aangemaakt heeft nog geen account.
+ * Logt er iemand in met precies dat e-mailadres, dan wordt het account
+ * eenmalig gekoppeld. Zo hoeft er geen SQL aan te pas te komen om een collega
+ * binnen te laten.
  */
 export async function huidigeSessie(): Promise<Sessie | null> {
-  const authUserId = await ingelogdAccount();
-  if (!authUserId) return null;
+  const account = await ingelogdAccount();
+  if (!account) return null;
+  const authUserId = account.id;
 
-  const rijen = await alsSysteem(
+  let rijen = await alsSysteem(
     (tx) => tx`
       select id, naam, rechten
       from medewerker
@@ -80,6 +87,19 @@ export async function huidigeSessie(): Promise<Sessie | null> {
       limit 1
     `,
   );
+
+  if (!rijen[0] && account.email) {
+    rijen = await alsSysteem(
+      (tx) => tx`
+        update medewerker
+        set auth_user_id = ${authUserId}
+        where auth_user_id is null
+          and actief
+          and lower(email) = lower(${account.email})
+        returning id, naam, rechten
+      `,
+    );
+  }
 
   const rij = rijen[0];
   if (!rij) return null;
