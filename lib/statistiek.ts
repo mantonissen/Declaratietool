@@ -36,10 +36,18 @@ export async function kerncijfers(sessie: Sessie, van: Datum, tot: Datum): Promi
              sum(km_bedrag)::float8 as km_bedrag
       from v_rit where datum between ${van} and ${tot}
     `;
+    // Gefactureerde termijnen tellen als omzet op het moment van factureren.
+    // De tabel is afgeschermd: zonder leesrecht komt hier null en blijft
+    // de omzet leeg.
+    const [t] = await tx`
+      select sum(bedrag)::float8 as bedrag from termijn
+      where gefactureerd_op::date between ${van} and ${tot}
+    `;
+    const termijn = nr(t.bedrag);
     return {
       minuten: Number(u.minuten),
       declarabeleMinuten: Number(u.decl),
-      omzet: nr(u.omzet),
+      omzet: u.omzet === null ? null : Number(u.omzet) + (termijn ?? 0),
       kosten: nr(u.kosten),
       km: Number(r.km),
       kmBedrag: nr(r.km_bedrag),
@@ -86,13 +94,23 @@ export async function perPeriode(
     group by m.maand
     order by m.maand
   `);
-  return rijen.map((r) => ({
-    maand: r.maand as Datum,
-    minuten: Number(r.minuten),
-    declarabeleMinuten: Number(r.decl),
-    omzet: nr(r.omzet),
-    kosten: nr(r.kosten),
-  }));
+  const termijnen = await alsGebruiker(sessie.authUserId, (tx) => tx`
+    select date_trunc(${eenheid}, gefactureerd_op)::date as maand, sum(bedrag)::float8 as bedrag
+    from termijn
+    where gefactureerd_op::date between ${van} and ${tot}
+    group by 1
+  `);
+  const perVak = new Map(termijnen.map((t) => [t.maand as string, Number(t.bedrag)]));
+  return rijen.map((r) => {
+    const extra = perVak.get(r.maand as string) ?? 0;
+    return {
+      maand: r.maand as Datum,
+      minuten: Number(r.minuten),
+      declarabeleMinuten: Number(r.decl),
+      omzet: r.omzet === null && extra === 0 ? null : Number(r.omzet ?? 0) + extra,
+      kosten: nr(r.kosten),
+    };
+  });
 }
 
 export type ProjectRij = {
@@ -107,18 +125,31 @@ export type ProjectRij = {
   besteedTotaal: number;         // uren, over de hele looptijd
   budgetVerbruiktPct: number | null;
   effectiefUurtarief: number | null;
+  facturatiemodel: "nacalculatie" | "vaste_prijs";
+  vastePrijs: number | null;
+  termijnGefactureerd: number | null;   // in de periode
+  termijnOpen: number | null;           // nog te factureren, hele looptijd
 };
 
 export async function perProject(sessie: Sessie, van: Datum, tot: Datum): Promise<ProjectRij[]> {
   const rijen = await alsGebruiker(sessie.authUserId, (tx) => tx`
     select p.id, p.naam as project, k.naam as klant, p.status,
            p.budget_uren::float8 as budget_uren,
+           p.facturatiemodel::text as model, p.vaste_prijs::float8 as vaste_prijs,
            coalesce(per.minuten, 0) as minuten,
            per.omzet::float8 as omzet,
            per.kosten::float8 as kosten,
-           coalesce(tot.uren, 0)::float8 as besteed_totaal
+           coalesce(tot.uren, 0)::float8 as besteed_totaal,
+           tm.gefactureerd::float8 as termijn_gefactureerd,
+           tm.open::float8 as termijn_open
     from project p
     join klant k on k.id = p.klant_id
+    left join (
+      select project_id,
+             sum(bedrag) filter (where gefactureerd_op::date between ${van} and ${tot}) as gefactureerd,
+             sum(bedrag) filter (where factuur_referentie is null) as open
+      from termijn group by project_id
+    ) tm on tm.project_id = p.id
     left join (
       select project_id, sum(minuten) as minuten, sum(omzet) as omzet, sum(kosten) as kosten
       from v_urenregel where datum between ${van} and ${tot}
@@ -128,15 +159,20 @@ export async function perProject(sessie: Sessie, van: Datum, tot: Datum): Promis
       select project_id, sum(minuten) / 60.0 as uren
       from v_urenregel group by project_id
     ) tot on tot.project_id = p.id
-    where per.minuten is not null or p.status = 'actief'
+    where per.minuten is not null or p.status = 'actief' or tm.gefactureerd is not null
     order by coalesce(per.minuten, 0) desc, p.naam
   `);
   return rijen.map((r) => {
     const budget = nr(r.budget_uren);
     const besteed = Number(r.besteed_totaal);
     const minuten = Number(r.minuten);
-    const omzet = nr(r.omzet);
+    const termijn = nr(r.termijn_gefactureerd);
+    const omzet = r.omzet === null && termijn === null ? null : Number(r.omzet ?? 0) + (termijn ?? 0);
     return {
+      facturatiemodel: r.model as ProjectRij["facturatiemodel"],
+      vastePrijs: nr(r.vaste_prijs),
+      termijnGefactureerd: termijn,
+      termijnOpen: nr(r.termijn_open),
       projectId: r.id as string,
       project: r.project as string,
       klant: r.klant as string,
@@ -176,12 +212,21 @@ export async function perKlant(sessie: Sessie, van: Datum, tot: Datum): Promise<
     group by k.id, k.naam
     order by sum(v.minuten) desc
   `);
+  const termijnen = await alsGebruiker(sessie.authUserId, (tx) => tx`
+    select p.klant_id, sum(t.bedrag)::float8 as bedrag
+    from termijn t join project p on p.id = t.project_id
+    where t.gefactureerd_op::date between ${van} and ${tot}
+    group by p.klant_id
+  `);
+  const perKlantTermijn = new Map(termijnen.map((t) => [t.klant_id as string, Number(t.bedrag)]));
   return rijen.map((r) => ({
     klantId: r.id as string,
     klant: r.naam as string,
     projecten: Number(r.projecten),
     minuten: Number(r.minuten),
-    omzet: nr(r.omzet),
+    omzet: r.omzet === null && !perKlantTermijn.has(r.id as string)
+      ? null
+      : Number(r.omzet ?? 0) + (perKlantTermijn.get(r.id as string) ?? 0),
     kosten: nr(r.kosten),
     km: Number(r.km),
   }));

@@ -136,6 +136,32 @@ dat op niet-declarabel staat maakt elke regel eronder niet-declarabel.
 dat gelijk aan het tarief; zodra er vaste prijzen bij komen (besluit B5, later)
 is het het getal dat er werkelijk toe doet.
 
+## Vaste prijs en termijnen (besluit B5, gewijzigd naar b)
+
+Een project heeft een `facturatiemodel`: `nacalculatie` of `vaste_prijs`. Bij
+een vaste prijs staat de afgesproken som in `project.vaste_prijs` en wordt hij
+gefactureerd via de tabel `termijn`: per project een reeks (volgorde,
+omschrijving, bedrag, geplande datum), elk met een `factuur_referentie` zodra
+hij gefactureerd is. Een termijn kan vooraf zijn ingepland (30/40/30) of ter
+plekke worden toegevoegd bij een tussenoplevering.
+
+De uren op zo'n project worden gewoon geschreven en goedgekeurd, maar
+`v_urenregel` geeft ze omzet **nul**: ze bepalen de factuur niet. Ze tellen wel
+in de kosten, en bij het factureren gaan ze mee als verantwoording (met de
+factuurreferentie, dus op slot). `v_project_uitputting` telt de gefactureerde
+termijnen als omzet en rekent daar het effectieve uurtarief uit — som gedeeld
+door bestede uren, het getal dat bij een vaste prijs telt.
+
+Een gefactureerde termijn is op slot (trigger). Klopt hij niet, dan volgt een
+creditnota in het boekhoudpakket; hier blijft de historie staan.
+
+## Facturen
+
+Een factuur is geen tabel maar een `factuur_referentie` op urenregels, ritten
+en termijnen van één project. `v_factuur` telt per referentie op: uren en
+omzet, kilometers, termijnbedrag, totaal. Omdat de view op de afgeschermde views
+leunt, ziet een medewerker zijn eigen regels zonder bedrag (test 18).
+
 ## Testen
 
 ```

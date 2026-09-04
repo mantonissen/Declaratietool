@@ -139,6 +139,19 @@ join klant k   on k.code = v.klantcode
 join project p on p.code = v.projectcode
 where not exists (select 1 from rit limit 1);
 
+-- Het vergunningtraject is een vaste prijs in drie termijnen (keuze B5b).
+update project set facturatiemodel = 'vaste_prijs', vaste_prijs = 17000
+ where code = 'MER-01';
+insert into termijn (project_id, volgorde, omschrijving, bedrag, gepland_op)
+select p.id, v.volgorde, v.oms, v.bedrag, v.gepland
+from project p, (values
+  (1, 'Bij opdracht (30%)',                 5100.00, date '2026-06-15'),
+  (2, 'Tussenoplevering vooroverleg (40%)', 6800.00, date '2026-09-30'),
+  (3, 'Eindoplevering aanvraag (30%)',      5100.00, date '2026-12-15')
+) as v(volgorde, oms, bedrag, gepland)
+where p.code = 'MER-01'
+  and not exists (select 1 from termijn t where t.project_id = p.id);
+
 -- Sam heeft twee weken geleden ingediend en wacht op goedkeuring, zodat het
 -- goedkeurscherm iets te doen heeft.
 with basis as (select (date_trunc('week', current_date) - interval '14 days')::date as maandag)

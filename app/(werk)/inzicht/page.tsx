@@ -196,8 +196,16 @@ export default async function InzichtPagina({
               {projecten.map((r) => (
                 <tr key={r.projectId} className="border-b border-line last:border-0">
                   <td className="px-3 py-2">
-                    <span className="block font-medium">{r.project}</span>
-                    <span className="block text-xs text-muted">{r.klant}</span>
+                    <span className="block font-medium">
+                      {r.project}
+                      {r.facturatiemodel === "vaste_prijs" && <span className="label ml-2 rounded bg-accent-bg px-1 py-0.5 text-accent-ink">vaste prijs</span>}
+                    </span>
+                    <span className="block text-xs text-muted">
+                      {r.klant}
+                      {r.facturatiemodel === "vaste_prijs" && geld && r.vastePrijs !== null && (
+                        <> · {euro(r.vastePrijs)}{r.termijnOpen ? `, nog ${euro(r.termijnOpen)} te factureren` : ", volledig gefactureerd"}</>
+                      )}
+                    </span>
                   </td>
                   <td className="cijfers px-3 py-2 text-right">{minutenAlsTijd(r.minuten)}</td>
                   <td className="px-3 py-2"><Meter pct={r.budgetVerbruiktPct} /></td>

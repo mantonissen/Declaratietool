@@ -84,12 +84,25 @@ account.
 
 ## Factureren
 
-Een factuur is geen eigen tabel. De eigenaar kiest een klant en een periode,
-ziet de goedgekeurde regels die nog niet gefactureerd zijn, en geeft een
-factuurnummer op; dat nummer komt als `factuur_referentie` op elke regel en de
-status wordt `gefactureerd`. Vanaf dat moment weigert de trigger uit de
-migraties elke wijziging aan datum, minuten of onderdeel. De factuur zelf maak
-je in het boekhoudpakket (keuze E2a); de app levert de specificatie als bijlage.
+Een factuur is geen eigen tabel. De eigenaar kiest een project, ziet wat er te
+factureren staat en geeft een factuurnummer op; dat nummer komt als
+`factuur_referentie` op elke regel en termijn, en de status wordt
+`gefactureerd`. Vanaf dat moment weigeren de triggers uit de migraties elke
+wijziging. De factuur zelf maak je in het boekhoudpakket (keuze E2a); de app
+levert de specificatie als bijlage.
+
+Twee modellen per project (keuze B5b):
+
+- **Nacalculatie** — de goedgekeurde uren en ritten in een periode, tegen het
+  bevroren tarief.
+- **Vaste prijs** — een afgesproken som, vastgelegd in `project.vaste_prijs`,
+  gefactureerd in **termijnen** (tabel `termijn`) bij tussenopleveringen. Een
+  termijn kan vooraf zijn ingepland of ter plekke worden toegevoegd. De uren
+  worden gewoon geschreven en goedgekeurd, maar `v_urenregel` geeft ze omzet
+  nul; ze tellen in de kosten en gaan bij het factureren mee als
+  verantwoording op de specificatie, zonder bedrag. Omzet van zo'n project is
+  de som van de gefactureerde termijnen; het effectieve uurtarief is die som
+  gedeeld door de bestede uren — het getal dat bij een vaste prijs telt.
 
 De view `v_factuur` telt per referentie de bevroren bedragen op. Omdat hij op
 de afgeschermde views leunt, ziet een medewerker zijn eigen factuurregels maar

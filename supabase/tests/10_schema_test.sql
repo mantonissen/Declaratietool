@@ -479,4 +479,50 @@ begin
 end
 $$;
 
+-- ------------------------------------------------ 19. vaste prijs -----------
+
+insert into project (id, klant_id, naam, code, facturatiemodel, vaste_prijs) values
+  ('dddddddd-0000-0000-0000-000000000002', 'cccccccc-0000-0000-0000-000000000001',
+   'Quickscan', 'NOORD-02', 'vaste_prijs', 6000);
+insert into projectonderdeel (id, project_id, naam) values
+  ('eeeeeeee-0000-0000-0000-000000000009', 'dddddddd-0000-0000-0000-000000000002', 'Uitvoering');
+insert into tariefregel (project_id, bedrag_per_uur, geldig_vanaf) values
+  ('dddddddd-0000-0000-0000-000000000002', 150, '2026-01-01');
+insert into urenregel (medewerker_id, onderdeel_id, datum, minuten, status) values
+  ('bbbbbbbb-0000-0000-0000-000000000002', 'eeeeeeee-0000-0000-0000-000000000009',
+   '2026-06-10', 600, 'goedgekeurd');
+insert into termijn (project_id, volgorde, omschrijving, bedrag) values
+  ('dddddddd-0000-0000-0000-000000000002', 1, 'Bij opdracht', 2000),
+  ('dddddddd-0000-0000-0000-000000000002', 2, 'Tussenoplevering', 2500),
+  ('dddddddd-0000-0000-0000-000000000002', 3, 'Eindoplevering', 1500);
+
+update termijn set factuur_referentie = '2026-002', gefactureerd_op = now()
+ where omschrijving = 'Bij opdracht';
+
+do $$
+declare r record;
+begin
+  select * into r from v_urenregel where onderdeel_id = 'eeeeeeee-0000-0000-0000-000000000009';
+  if r.omzet <> 0 then raise exception 'Uren op een vaste prijs horen geen omzet te dragen, kreeg %', r.omzet; end if;
+  if r.kosten <> 620 then raise exception 'Kosten lopen wel door (10 u a 62), kreeg %', r.kosten; end if;
+
+  select * into r from v_project_uitputting where project_id = 'dddddddd-0000-0000-0000-000000000002';
+  if r.omzet <> 2000 then raise exception 'Omzet hoort de gefactureerde termijn te zijn, kreeg %', r.omzet; end if;
+  if r.termijn_open <> 4000 then raise exception 'Open termijnen horen 4000 te zijn, kreeg %', r.termijn_open; end if;
+  if r.effectief_uurtarief <> 200 then raise exception 'Effectief tarief 2000 / 10 u = 200, kreeg %', r.effectief_uurtarief; end if;
+
+  select * into r from v_factuur where referentie = '2026-002';
+  if r.totaal <> 2000 or r.project <> 'Quickscan' then
+    raise exception 'Factuur uit alleen een termijn hoort 2000 op Quickscan te zijn';
+  end if;
+
+  begin
+    update termijn set bedrag = 1 where factuur_referentie = '2026-002';
+    raise exception 'Gefactureerde termijn had op slot moeten zitten';
+  exception when restrict_violation then null;
+  end;
+  raise notice 'OK 19. vaste prijs: uren zonder omzet, termijnen als omzet, effectief tarief';
+end
+$$;
+
 select 'Alle tests geslaagd.' as resultaat;

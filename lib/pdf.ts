@@ -1,6 +1,6 @@
 import "server-only";
 import PDFDocument from "pdfkit";
-import type { Bedrijf, KlantKop, SpecUur, SpecRit } from "./facturatie";
+import type { Bedrijf, KlantKop, ProjectKop, SpecUur, SpecRit, SpecTermijn } from "./facturatie";
 import { euro, getal, korteDatum, minutenAlsUren, type Datum } from "./datum";
 
 // Urenspecificatie als PDF (keuze E3a). Gewone Helvetica, A4, één kolomraster
@@ -10,8 +10,10 @@ import { euro, getal, korteDatum, minutenAlsUren, type Datum } from "./datum";
 type Invoer = {
   bedrijf: Bedrijf;
   klant: KlantKop;
+  project: ProjectKop;
   uren: SpecUur[];
   ritten: SpecRit[];
+  termijnen: SpecTermijn[];
   van: Datum;
   tot: Datum;
   referentie: string | null;
@@ -47,7 +49,9 @@ export async function specificatiePdf(inv: Invoer): Promise<Buffer> {
   const klaar = new Promise<Buffer>((r) => doc.on("end", () => r(Buffer.concat(delen))));
 
   const breed = A4.b - 2 * M;
-  const geld = inv.metTarieven;
+  const vast = inv.project.facturatiemodel === "vaste_prijs";
+  // Termijnbedragen zijn de factuur zelf; die staan er altijd op.
+  const geld = inv.metTarieven || inv.termijnen.length > 0;
   const oms = inv.metOmschrijving;
 
   // Kolommen: datum, wie, onderdeel, [omschrijving], uren, [tarief, bedrag]
@@ -95,16 +99,24 @@ export async function specificatiePdf(inv: Invoer): Promise<Buffer> {
     adres.forEach((t, i) => doc.text(t, M, y + 13 + i * 11));
 
     const meta = [
-      ["Periode", `${korteDatum(inv.van)} — ${korteDatum(inv.tot)}`],
+      ["Project", inv.project.code ? `${inv.project.code} · ${inv.project.naam}` : inv.project.naam],
+      ...(inv.van ? [["Periode", `${korteDatum(inv.van)} — ${korteDatum(inv.tot)}`]] : []),
       ...(inv.referentie ? [["Factuur", inv.referentie]] : []),
       ...(inv.klant.factuurReferentie ? [["Uw referentie", inv.klant.factuurReferentie]] : []),
       ["Datum", korteDatum(new Date().toISOString().slice(0, 10))],
     ];
-    meta.forEach(([l, w], i) => {
-      doc.fillColor(GRIJS).text(l, M + breed / 2, y + i * 11, { width: breed / 4, align: "right" });
-      doc.fillColor(INK).text(w, M + (breed * 3) / 4 + 6, y + i * 11, { width: breed / 4 - 6, align: "right" });
-    });
-    y += Math.max(adres.length + 1, meta.length) * 11 + 18;
+    // Labels smal, waarden breed; een lange projectnaam mag wikkelen en de
+    // regels eronder schuiven dan mee in plaats van erdoorheen te lopen.
+    const labelX = M + breed * 0.5, labelB = breed * 0.12;
+    const waardeX = M + breed * 0.63, waardeB = breed * 0.37;
+    let my = y;
+    for (const [l, w] of meta) {
+      const h = Math.max(11, doc.heightOfString(w, { width: waardeB }) + 2);
+      doc.fillColor(GRIJS).text(l, labelX, my, { width: labelB, align: "right" });
+      doc.fillColor(INK).text(w, waardeX, my, { width: waardeB, align: "right" });
+      my += h;
+    }
+    y = Math.max(y + (adres.length + 1) * 11, my) + 18;
   };
 
   const tabelKop = () => {
@@ -147,14 +159,46 @@ export async function specificatiePdf(inv: Invoer): Promise<Buffer> {
   kop();
   tabelKop();
 
-  // Per project een blok met eigen subtotaal.
-  const projecten = new Map<string, SpecUur[]>();
-  for (const u of inv.uren) (projecten.get(u.project) ?? projecten.set(u.project, []).get(u.project)!).push(u);
+  let termijnTot = 0;
+  if (inv.termijnen.length) {
+    nieuwePaginaAlsNodig(40);
+    doc.font("Helvetica-Bold").fontSize(9.5).fillColor(INK).text("Termijnen", M + 2, y + 4);
+    y += 20;
+    for (const t of inv.termijnen) {
+      termijnTot += t.bedrag;
+      rij([
+        t.geplandOp ? korteDatum(t.geplandOp) : "",
+        "",
+        t.omschrijving,
+        ...(oms ? [""] : []),
+        "",
+        "",
+        euro(t.bedrag),
+      ]);
+    }
+    doc.moveTo(M, y).lineTo(M + breed, y).strokeColor(LIJN).lineWidth(0.4).stroke();
+    y += 3;
+    rij(["", "", "Subtotaal termijnen", ...(oms ? [""] : []), "", "", euro(termijnTot)], { vet: true });
+    y += 6;
+  }
+
+  // Per onderdeel-blok de uren; bij een vaste prijs als verantwoording,
+  // zonder tarief of bedrag.
+  const blokken = new Map<string, SpecUur[]>();
+  for (const u of inv.uren) {
+    const k = vast ? "Verantwoording uren" : u.project;
+    (blokken.get(k) ?? blokken.set(k, []).get(k)!).push(u);
+  }
 
   let totMin = 0, totOmzet = 0;
-  for (const [project, regels] of projecten) {
+  for (const [titel, regels] of blokken) {
     nieuwePaginaAlsNodig(40);
-    doc.font("Helvetica-Bold").fontSize(9.5).fillColor(INK).text(project, M + 2, y + 4);
+    doc.font("Helvetica-Bold").fontSize(9.5).fillColor(INK).text(titel, M + 2, y + 4);
+    if (vast) {
+      doc.font("Helvetica").fontSize(8).fillColor(GRIJS)
+        .text("Niet in rekening gebracht; de vaste prijs wordt in termijnen gefactureerd.", M + 2, y + 16);
+      y += 12;
+    }
     y += 20;
     let subMin = 0, subOmzet = 0;
     for (const u of regels) {
@@ -165,7 +209,7 @@ export async function specificatiePdf(inv: Invoer): Promise<Buffer> {
         u.onderdeel + (u.declarabel ? "" : " — niet declarabel"),
         ...(oms ? [u.omschrijving ?? ""] : []),
         minutenAlsUren(u.minuten),
-        ...(geld ? [u.declarabel ? euro(u.verkooptarief) : "", euro(u.omzet)] : []),
+        ...(geld ? (vast ? ["", ""] : [u.declarabel ? euro(u.verkooptarief) : "", euro(u.omzet)]) : []),
       ], { grijs: u.correctieVanId !== null });
     }
     doc.moveTo(M, y).lineTo(M + breed, y).strokeColor(LIJN).lineWidth(0.4).stroke();
@@ -174,7 +218,7 @@ export async function specificatiePdf(inv: Invoer): Promise<Buffer> {
       "", "", "Subtotaal",
       ...(oms ? [""] : []),
       minutenAlsUren(subMin),
-      ...(geld ? ["", euro(subOmzet)] : []),
+      ...(geld ? (vast ? ["", ""] : ["", euro(subOmzet)]) : []),
     ], { vet: true });
     y += 6;
     totMin += subMin; totOmzet += subOmzet;
@@ -205,10 +249,14 @@ export async function specificatiePdf(inv: Invoer): Promise<Buffer> {
   nieuwePaginaAlsNodig(40);
   doc.moveTo(M, y).lineTo(M + breed, y).strokeColor(INK).lineWidth(0.8).stroke();
   y += 6;
-  rij(["", "", "Totaal uren", ...(oms ? [""] : []), minutenAlsUren(totMin), ...(geld ? ["", euro(totOmzet)] : [])], { vet: true });
-  if (geld && inv.ritten.length) {
-    rij(["", "", "Totaal reiskosten", ...(oms ? [""] : []), "", "", euro(kmBedrag)], { vet: true });
-    rij(["", "", "Totaal exclusief btw", ...(oms ? [""] : []), "", "", euro(totOmzet + kmBedrag)], { vet: true });
+  if (inv.uren.length) {
+    rij(["", "", "Totaal uren", ...(oms ? [""] : []), minutenAlsUren(totMin), ...(geld ? (vast ? ["", ""] : ["", euro(totOmzet)]) : [])], { vet: true });
+  }
+  if (geld) {
+    if (inv.termijnen.length) rij(["", "", "Totaal termijnen", ...(oms ? [""] : []), "", "", euro(termijnTot)], { vet: true });
+    if (inv.ritten.length) rij(["", "", "Totaal reiskosten", ...(oms ? [""] : []), "", "", euro(kmBedrag)], { vet: true });
+    rij(["", "", "Totaal exclusief btw", ...(oms ? [""] : []), "", "",
+         euro((vast ? 0 : totOmzet) + termijnTot + kmBedrag)], { vet: true });
   }
 
   // Voettekst op elke pagina.

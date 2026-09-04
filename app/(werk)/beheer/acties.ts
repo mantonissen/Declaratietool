@@ -91,12 +91,46 @@ export async function nieuwProject(formData: FormData) {
   const naam = tekst(formData, "naam");
   if (!klantId || !naam) throw new Error("Een project heeft een klant en een naam nodig.");
 
+  const model = formData.get("facturatiemodel") === "vaste_prijs" ? "vaste_prijs" : "nacalculatie";
   await alsGebruiker(sessie.authUserId, (tx) => tx`
-    insert into project (klant_id, naam, code, budget_uren, budget_bedrag)
+    insert into project (klant_id, naam, code, budget_uren, budget_bedrag, facturatiemodel, vaste_prijs)
     values (${klantId}, ${naam}, ${tekst(formData, "code")},
-            ${getal(formData, "budgetUren")}, ${getal(formData, "budgetBedrag")})
+            ${getal(formData, "budgetUren")}, ${getal(formData, "budgetBedrag")},
+            ${model}::facturatiemodel, ${getal(formData, "vastePrijs")})
   `);
   revalidatePath(`/beheer/klant/${klantId}`);
+}
+
+const STATUSSEN = ["concept", "actief", "afgerond", "gearchiveerd"];
+
+export async function werkProjectBij(formData: FormData) {
+  const sessie = await beheerSessie();
+  const id = String(formData.get("id") ?? "");
+  const naam = tekst(formData, "naam");
+  const status = String(formData.get("status") ?? "actief");
+  if (!id || !naam) throw new Error("Ontbrekende gegevens.");
+  if (!STATUSSEN.includes(status)) throw new Error("Onbekende status.");
+
+  // Het facturatiemodel raakt geld; dat blijft bij de eigenaar.
+  const model = formData.get("facturatiemodel") === "vaste_prijs" ? "vaste_prijs" : "nacalculatie";
+  if (sessie.rechten !== "eigenaar") {
+    await alsGebruiker(sessie.authUserId, (tx) => tx`
+      update project set naam = ${naam}, code = ${tekst(formData, "code")},
+        status = ${status}::project_status, budget_uren = ${getal(formData, "budgetUren")}
+      where id = ${id}
+    `);
+  } else {
+    await alsGebruiker(sessie.authUserId, (tx) => tx`
+      update project set naam = ${naam}, code = ${tekst(formData, "code")},
+        status = ${status}::project_status, budget_uren = ${getal(formData, "budgetUren")},
+        facturatiemodel = ${model}::facturatiemodel,
+        vaste_prijs = ${getal(formData, "vastePrijs")}
+      where id = ${id}
+    `);
+  }
+  revalidatePath(`/beheer/project/${id}`);
+  revalidatePath("/facturen");
+  revalidatePath("/inzicht");
 }
 
 export async function nieuwOnderdeel(formData: FormData) {

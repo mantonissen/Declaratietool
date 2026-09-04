@@ -9,7 +9,8 @@ verkooptarieven naast interne kostprijs zodat de marge per project zichtbaar is.
 Fase 1 tot en met 3 draaien: inloggen, uren schrijven op mobiel en desktop,
 ritten en kilometers, week indienen en goedkeuren, klanten, projecten, tarieven,
 kostprijzen en medewerkers beheren, inzicht in uren, omzet, marge en budget,
-factuurvoorstel per klant met urenspecificatie als PDF, correcties met een
+factuurvoorstel per project — nacalculatie of vaste prijs in termijnen bij
+tussenopleveringen — met urenspecificatie als PDF, correcties met een
 tegenboeking, export naar CSV.
 
 | | |

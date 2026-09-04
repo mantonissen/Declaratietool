@@ -218,6 +218,17 @@ export default async function KlantPagina({
             <span className="label">Budget in euro</span>
             <input name="budgetBedrag" inputMode="decimal" className="veld cijfers" />
           </label>
+          <label className="flex flex-col gap-2">
+            <span className="label">Facturatie</span>
+            <select name="facturatiemodel" defaultValue="nacalculatie" className="veld">
+              <option value="nacalculatie">Nacalculatie — uren × tarief</option>
+              <option value="vaste_prijs">Vaste prijs — in termijnen</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-2">
+            <span className="label">Vaste prijs (bij dat model)</span>
+            <input name="vastePrijs" inputMode="decimal" className="veld cijfers" placeholder="afgesproken som excl. btw" />
+          </label>
         </div>
         <button type="submit" className="knop knop-primair self-start">
           Project opslaan
