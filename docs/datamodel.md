@@ -152,8 +152,8 @@ factuurreferentie, dus op slot). `v_project_uitputting` telt de gefactureerde
 termijnen als omzet en rekent daar het effectieve uurtarief uit — som gedeeld
 door bestede uren, het getal dat bij een vaste prijs telt.
 
-Een gefactureerde termijn is op slot (trigger). Klopt hij niet, dan volgt een
-creditnota in het boekhoudpakket; hier blijft de historie staan.
+Een gefactureerde termijn is op slot (trigger). Klopt hij niet, dan crediteer
+je de factuur; de historie blijft staan.
 
 ## Abonnementen
 
@@ -163,18 +163,46 @@ een begin- en optionele einddatum, en `herhaal_volgende` — de eerste dag van d
 eerstvolgende periode die nog geen termijn heeft. `verwerk_periodieke_facturen()`
 loopt van die datum tot vandaag en maakt per periode één termijn
 (`periode_start`, `periode_einde`, `automatisch = true`), beschermd door een
-unieke index op project en periode. Met `automatisch_factureren` krijgt de
-termijn direct een nummer uit de reeks in `instellingen`
-(`factuur_prefix`, `factuur_jaar`, `factuur_volgnummer`) en gaan de goedgekeurde
-uren van vóór de periode mee als verantwoording. `verwerkt_op` op de termijn
-markeert dat de eigenaar de factuur in de boekhouding heeft overgenomen.
+unieke index op project en periode. Met `automatisch_factureren` wordt van de
+termijn direct een definitieve factuur gemaakt, met een nummer uit de reeks in
+`instellingen` (`factuur_prefix`, `factuur_jaar`, `factuur_volgnummer`) en de
+goedgekeurde uren van vóór de periode als verantwoording. `verwerkt_op` op de
+factuur markeert dat de eigenaar hem heeft verstuurd en afgehandeld.
 
-## Facturen
+## Facturen en grootboek (besluit E2, gewijzigd naar c)
 
-Een factuur is geen tabel maar een `factuur_referentie` op urenregels, ritten
-en termijnen van één project. `v_factuur` telt per referentie op: uren en
-omzet, kilometers, termijnbedrag, totaal. Omdat de view op de afgeschermde views
-leunt, ziet een medewerker zijn eigen regels zonder bedrag (test 18).
+Een factuur is een eigen tabel: `factuur` (klant, project, status, nummer,
+datum, vervaldatum, periode, subtotaal, btw, totaal, betaald op, `credit_van_id`,
+`automatisch`, `verwerkt_op`, `geexporteerd_op`) met `factuurregel`
+(volgorde, omschrijving, aantal, eenheid, prijs, bedrag, `bron`: uren, ritten,
+termijn, handmatig of credit). De status loopt van `concept` via `definitief`
+naar `betaald` of `gecrediteerd`. Urenregels, ritten en termijnen wijzen met
+`factuur_id` naar de factuur waar ze op staan; `factuur_referentie` blijft als
+leesbaar nummer bestaan, want daar hangen de sloten en de rapportage aan.
+
+Elke regel legt btw en grootboek vast op het moment van factureren:
+`btw_code` en `btw_percentage` uit `btw_tarief`, `grootboek_id` en
+`grootboek_nummer` uit `grootboekrekening`. Zo blijft een oude factuur gelijk
+als je later een percentage of rekeningnaam aanpast. Welke rekening een regel
+krijgt: `project.grootboek_id` als dat is ingevuld, anders de standaard per
+soort regel in `instellingen` (`grootboek_uren`, `grootboek_reiskosten`,
+`grootboek_termijn`, `grootboek_abonnement`, `grootboek_overig`). De klant
+draagt de standaard `btw_code`.
+
+De logica zit in functies die als aanroeper draaien, zodat de rechten van de
+tabellen gelden: `maak_factuur()` (concept uit uren, ritten en termijnen),
+`voeg_factuurregel_toe()`, `herbereken_factuur()`, `maak_definitief()` (nummer,
+vervaldatum, sloten), `verwijder_concept()` (geeft de regels weer vrij) en
+`crediteer_factuur()` (nieuwe definitieve factuur met omgekeerde regels).
+Facturen zijn zichtbaar vanaf projectleider; alleen de eigenaar schrijft.
+
+Twee views voor de buitenwereld: `v_factuur` per factuur (totalen, openstaand,
+vervallen, minuten en kilometers eraan) en `v_factuur_journaal` per regel met
+alles wat een boekhoudpakket wil weten — factuurnummer, datum, vervaldatum,
+klant, grootboeknummer, btw-code en -bedrag. Concepten staan er niet in.
+Tests 18, 19 en 21 dekken dit: bedragen en btw, sloten na definitief maken,
+grootboek per regel, creditering, journaalregels, en dat een medewerker geen
+factuur kan maken of zien.
 
 ## Testen
 

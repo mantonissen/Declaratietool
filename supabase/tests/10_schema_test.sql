@@ -432,33 +432,39 @@ $$;
 
 do $$
 declare
-  n int;
-  r record;
+  n    int;
+  r    record;
+  f_id uuid;
+  nr   text;
 begin
   -- Als eigenaar via de rechten: factureren en daarna op slot.
   set local role authenticated;
   perform set_config('request.jwt.claim.sub',
                      '11111111-1111-1111-1111-111111111111', true);
 
-  update urenregel set status = 'gefactureerd', factuur_referentie = '2026-001'
-   where datum = '2026-04-02';
-  get diagnostics n = row_count;
-  if n <> 1 then raise exception 'Eigenaar hoort te kunnen factureren, raakte % regels', n; end if;
+  f_id := maak_factuur('dddddddd-0000-0000-0000-000000000001', '2026-04-01', '2026-04-30',
+                       array[]::uuid[], true, 'bbbbbbbb-0000-0000-0000-000000000001');
+  nr := maak_definitief(f_id, '2026-05-01');
 
-  select * into r from v_factuur where referentie = '2026-001';
+  select * into r from v_factuur where nummer = nr;
   if r.minuten <> 480 then raise exception 'Factuur hoort 480 minuten te dragen, kreeg %', r.minuten; end if;
-  if r.omzet is null then raise exception 'Eigenaar hoort het factuurbedrag te zien'; end if;
+  if r.subtotaal <> 1600 then raise exception 'Factuur hoort 8 u a 200 = 1600 te zijn, kreeg %', r.subtotaal; end if;
+  if r.totaal <> 1936 then raise exception 'Met 21%% btw hoort het 1936 te zijn, kreeg %', r.totaal; end if;
+
+  select status, factuur_referentie into r from urenregel where datum = '2026-04-02';
+  if r.status <> 'gefactureerd' or r.factuur_referentie <> nr then
+    raise exception 'De regel hoort gefactureerd te zijn onder %', nr;
+  end if;
 
   begin
-    update urenregel set minuten = 60 where factuur_referentie = '2026-001';
+    update urenregel set minuten = 60 where factuur_referentie = nr;
     raise exception 'Gefactureerde regel had op slot moeten zitten';
   exception when restrict_violation then null;
   end;
 
   reset role;
 
-  -- Als medewerker: zelf factureren kan niet, en de eigen factuur is
-  -- zichtbaar zonder bedrag.
+  -- Als medewerker: zelf factureren kan niet, en facturen zijn onzichtbaar.
   set local role authenticated;
   perform set_config('request.jwt.claim.sub',
                      '22222222-2222-2222-2222-222222222222', true);
@@ -471,11 +477,18 @@ begin
   exception when insufficient_privilege then null;
   end;
 
-  select * into r from v_factuur where referentie = '2026-001';
-  if r.omzet is not null then raise exception 'Medewerker zag een factuurbedrag'; end if;
+  begin
+    perform maak_factuur('dddddddd-0000-0000-0000-000000000001', '2026-05-01', '2026-05-31',
+                         array[]::uuid[], false, null);
+    raise exception 'Medewerker mocht een factuur maken';
+  exception when insufficient_privilege or raise_exception then null;
+  end;
+
+  select count(*) into n from v_factuur;
+  if n <> 0 then raise exception 'Medewerker zag % facturen', n; end if;
 
   reset role;
-  raise notice 'OK 18. factureren zet op slot; medewerker kan het niet en ziet geen bedrag';
+  raise notice 'OK 18. factureren zet op slot; medewerker kan het niet en ziet niets';
 end
 $$;
 
@@ -496,12 +509,19 @@ insert into termijn (project_id, volgorde, omschrijving, bedrag) values
   ('dddddddd-0000-0000-0000-000000000002', 2, 'Tussenoplevering', 2500),
   ('dddddddd-0000-0000-0000-000000000002', 3, 'Eindoplevering', 1500);
 
-update termijn set factuur_referentie = '2026-002', gefactureerd_op = now()
- where omschrijving = 'Bij opdracht';
-
 do $$
-declare r record;
+declare
+  r    record;
+  f_id uuid;
+  nr   text;
 begin
+  -- De eerste termijn factureren; de periode ligt bewust vóór de uren van
+  -- juni, zodat die niet meeliften.
+  f_id := maak_factuur('dddddddd-0000-0000-0000-000000000002', '2026-01-01', '2026-01-31',
+                       array[(select id from termijn where omschrijving = 'Bij opdracht')],
+                       false, null);
+  nr := maak_definitief(f_id, '2026-06-01');
+
   select * into r from v_urenregel where onderdeel_id = 'eeeeeeee-0000-0000-0000-000000000009';
   if r.omzet <> 0 then raise exception 'Uren op een vaste prijs horen geen omzet te dragen, kreeg %', r.omzet; end if;
   if r.kosten <> 620 then raise exception 'Kosten lopen wel door (10 u a 62), kreeg %', r.kosten; end if;
@@ -511,13 +531,18 @@ begin
   if r.termijn_open <> 4000 then raise exception 'Open termijnen horen 4000 te zijn, kreeg %', r.termijn_open; end if;
   if r.effectief_uurtarief <> 200 then raise exception 'Effectief tarief 2000 / 10 u = 200, kreeg %', r.effectief_uurtarief; end if;
 
-  select * into r from v_factuur where referentie = '2026-002';
-  if r.totaal <> 2000 or r.project <> 'Quickscan' then
-    raise exception 'Factuur uit alleen een termijn hoort 2000 op Quickscan te zijn';
+  select * into r from v_factuur where nummer = nr;
+  if r.subtotaal <> 2000 or r.project <> 'Quickscan' or r.status <> 'definitief' then
+    raise exception 'Factuur uit alleen een termijn hoort 2000 op Quickscan te zijn, kreeg % (%)', r.subtotaal, r.status;
+  end if;
+  if r.minuten <> 0 then raise exception 'Uren van juni horen niet mee te liften, kreeg % minuten', r.minuten; end if;
+  select * into r from factuurregel where factuur_id = f_id;
+  if r.grootboek_nummer <> '8020' or r.bron <> 'termijn' then
+    raise exception 'Termijnregel hoort op 8020 (vaste prijs) te staan, kreeg %', r.grootboek_nummer;
   end if;
 
   begin
-    update termijn set bedrag = 1 where factuur_referentie = '2026-002';
+    update termijn set bedrag = 1 where factuur_referentie = nr;
     raise exception 'Gefactureerde termijn had op slot moeten zitten';
   exception when restrict_violation then null;
   end;
@@ -584,10 +609,125 @@ begin
   end if;
 
   -- v_factuur kent de automatische facturen als project Beheerabonnement.
-  select count(*) into n1 from v_factuur where project = 'Beheerabonnement' and totaal = 1250;
-  if n1 <> 3 then raise exception 'v_factuur hoort drie abonnementsfacturen van 1250 te tonen, %', n1; end if;
+  select count(*) into n1 from v_factuur where project = 'Beheerabonnement' and subtotaal = 1250 and status = 'definitief';
+  if n1 <> 3 then raise exception 'v_factuur hoort drie definitieve abonnementsfacturen van 1250 te tonen, %', n1; end if;
 
   raise notice 'OK 20. abonnement: periodes ingehaald, idempotent, genummerd, uren als verantwoording';
+end
+$$;
+
+-- ------------------------------------------------- 21. echte facturen ------
+
+do $$
+declare
+  f_id  uuid;
+  c_id  uuid;
+  nr    text;
+  r     record;
+  n     int;
+begin
+  set local role authenticated;
+  perform set_config('request.jwt.claim.sub',
+                     '11111111-1111-1111-1111-111111111111', true);
+
+  -- Concept voor het nacalculatieproject over juni: de correctieregels van
+  -- 4 september vallen erbuiten, dus alleen wat er in juni goedgekeurd is.
+  insert into urenregel (medewerker_id, onderdeel_id, datum, minuten, status) values
+    ('bbbbbbbb-0000-0000-0000-000000000002', 'eeeeeeee-0000-0000-0000-000000000001',
+     '2026-06-15', 240, 'goedgekeurd');
+  insert into rit (medewerker_id, klant_id, project_id, datum, doel, afstand_km, retour, status) values
+    ('bbbbbbbb-0000-0000-0000-000000000002', 'cccccccc-0000-0000-0000-000000000001',
+     'dddddddd-0000-0000-0000-000000000001', '2026-06-15', 'klantbezoek', 50, true, 'goedgekeurd');
+
+  f_id := maak_factuur('dddddddd-0000-0000-0000-000000000001', '2026-06-01', '2026-06-30',
+                       array[]::uuid[], true, 'bbbbbbbb-0000-0000-0000-000000000001');
+
+  select * into r from factuur where id = f_id;
+  if r.status <> 'concept' or r.nummer is not null then raise exception 'Nieuwe factuur hoort concept zonder nummer te zijn'; end if;
+
+  select count(*) into n from factuurregel where factuur_id = f_id;
+  if n <> 2 then raise exception 'Verwacht twee regels (uren en reiskosten), kreeg %', n; end if;
+
+  -- Uren: 4 u a 200 (het projecttarief van test 2, verhoogd in test 7) = 800.
+  select * into r from factuurregel where factuur_id = f_id and bron = 'uren';
+  if r.bedrag <> 800 or r.eenheid <> 'uur' or r.aantal <> 4 then
+    raise exception 'Urenregel hoort 4 uur a 200 = 800 te zijn, kreeg % x % = %', r.aantal, r.prijs, r.bedrag;
+  end if;
+  if r.grootboek_nummer <> '8000' or r.btw_percentage <> 21 then
+    raise exception 'Urenregel hoort op 8000 met 21%% te staan, kreeg % / %', r.grootboek_nummer, r.btw_percentage;
+  end if;
+  select * into r from factuurregel where factuur_id = f_id and bron = 'ritten';
+  if r.grootboek_nummer <> '8010' or r.bedrag <> 23.00 then
+    raise exception 'Reiskosten horen op 8010 voor 100 km a 0,23 = 23,00, kreeg % / %', r.grootboek_nummer, r.bedrag;
+  end if;
+
+  -- Een handmatige regel erbij, en de totalen kloppen met btw.
+  perform voeg_factuurregel_toe(f_id, 'Materiaal', 2, 'stuk', 50, 100, 'handmatig');
+  select * into r from factuur where id = f_id;
+  if r.subtotaal <> 923.00 or r.btw_bedrag <> 193.83 or r.totaal <> 1116.83 then
+    raise exception 'Totalen kloppen niet: % / % / %', r.subtotaal, r.btw_bedrag, r.totaal;
+  end if;
+
+  -- Wat aan het concept hangt telt niet meer als te factureren.
+  select count(*) into n from urenregel where datum = '2026-06-15' and factuur_id = f_id;
+  if n <> 1 then raise exception 'De urenregel hoort aan het concept te hangen'; end if;
+
+  -- Definitief: nummer, datums, slot.
+  nr := maak_definitief(f_id, '2026-07-01');
+  select * into r from factuur where id = f_id;
+  if r.status <> 'definitief' or r.nummer <> nr or r.vervaldatum <> date '2026-07-31' then
+    raise exception 'Definitief maken klopt niet: % % %', r.status, r.nummer, r.vervaldatum;
+  end if;
+  select status, factuur_referentie into r from urenregel where datum = '2026-06-15';
+  if r.status <> 'gefactureerd' or r.factuur_referentie <> nr then
+    raise exception 'Uren horen gefactureerd te zijn onder %', nr;
+  end if;
+  begin
+    update factuurregel set bedrag = 1 where factuur_id = f_id;
+    raise exception 'Regels van een definitieve factuur horen vast te liggen';
+  exception when restrict_violation then null;
+  end;
+  begin
+    delete from factuur where id = f_id;
+    raise exception 'Een definitieve factuur hoort niet verwijderbaar te zijn';
+  exception when restrict_violation then null;
+  end;
+
+  -- Journaal: drie regels met grootboek en btw.
+  select count(*) into n from v_factuur_journaal where nummer = nr and grootboek_nummer is not null;
+  if n <> 3 then raise exception 'Journaal hoort drie regels met grootboek te hebben, %', n; end if;
+
+  -- Crediteren: omgekeerde regels, meteen definitief, origineel gecrediteerd.
+  c_id := crediteer_factuur(f_id, 'Verkeerde klant');
+  select * into r from factuur where id = c_id;
+  if r.status <> 'definitief' or r.totaal <> -1116.83 or r.credit_van_id <> f_id then
+    raise exception 'Creditfactuur klopt niet: % %', r.status, r.totaal;
+  end if;
+  if (select status from factuur where id = f_id) <> 'gecrediteerd' then
+    raise exception 'Origineel hoort gecrediteerd te zijn';
+  end if;
+
+  -- Een concept weggooien geeft alles vrij.
+  insert into urenregel (medewerker_id, onderdeel_id, datum, minuten, status) values
+    ('bbbbbbbb-0000-0000-0000-000000000002', 'eeeeeeee-0000-0000-0000-000000000001',
+     '2026-07-10', 60, 'goedgekeurd');
+  f_id := maak_factuur('dddddddd-0000-0000-0000-000000000001', '2026-07-01', '2026-07-31',
+                       array[]::uuid[], false, null);
+  perform verwijder_concept(f_id);
+  select count(*) into n from urenregel where datum = '2026-07-10' and factuur_id is null and status = 'goedgekeurd';
+  if n <> 1 then raise exception 'Na verwijderen van het concept hoort de regel weer vrij te zijn'; end if;
+
+  reset role;
+
+  -- Een medewerker ziet geen facturen.
+  set local role authenticated;
+  perform set_config('request.jwt.claim.sub',
+                     '22222222-2222-2222-2222-222222222222', true);
+  select count(*) into n from v_factuur;
+  if n <> 0 then raise exception 'Medewerker zag % facturen', n; end if;
+  reset role;
+
+  raise notice 'OK 21. facturen: concept met grootboek en btw, definitief met nummer en slot, credit, journaal';
 end
 $$;
 

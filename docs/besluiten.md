@@ -47,13 +47,14 @@ staan.
 | | Besluit |
 |---|---|
 | **E1** | Projectuitputting en marge |
-| **E2** | Export naar Excel of CSV |
-| **E3** | Urenspecificatie als PDF voor de klant |
+| **E2** | Factureren in de app, met btw en grootboekrekening per regel; journaal als CSV voor de boekhouding, koppeling met een pakket voorbereid (gewijzigd van a naar c) |
+| **E3** | Urenspecificatie als PDF voor de klant, als bijlage bij de factuur |
 
 ## Wat hiervan nog open staat
 
-- **E2** — welk boekhoudpakket gebruiken jullie? Dat bepaalt of een directe
-  koppeling later de moeite waard is.
+- **E2** — welk boekhoudpakket gebruiken jullie? De grootboeknummers in
+  `/beheer/grootboek` neem je over uit dat pakket; de directe koppeling (E2b)
+  stuurt straks dezelfde regels door als de journaalexport.
 - **C3** — rijdt iemand in een auto van de zaak? Dan gelden er zwaardere eisen
   aan de rittenregistratie; dat is een vraag voor de boekhouder.
 - **B3** — de kostprijs per medewerker moet nog ingevuld worden. Een schatting

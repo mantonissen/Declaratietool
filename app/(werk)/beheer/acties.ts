@@ -57,6 +57,8 @@ export async function werkKlantBij(formData: FormData) {
       factuur_referentie = ${tekst(formData, "factuurReferentie")},
       specificatie_omschrijving = ${formData.get("specOmschrijving") === "aan"},
       specificatie_tarieven = ${formData.get("specTarieven") === "aan"},
+      -- De btw-code raakt de factuur; alleen de eigenaar wijzigt hem.
+      btw_code = coalesce(${sessie.rechten === "eigenaar" ? tekst(formData, "btwCode") : null}, btw_code),
       actief = ${formData.get("actief") === "aan"}
     where id = ${id}
   `);
@@ -148,7 +150,8 @@ export async function werkProjectBij(formData: FormData) {
           when ${model} <> 'abonnement' then null
           when herhaal_volgende is null or herhaal_volgende < ${start}::date then ${start}::date
           else herhaal_volgende end,
-        automatisch_factureren = ${formData.get("automatisch") === "aan"}
+        automatisch_factureren = ${formData.get("automatisch") === "aan"},
+        grootboek_id = ${tekst(formData, "grootboekId")}::uuid
       where id = ${id}
     `);
   }

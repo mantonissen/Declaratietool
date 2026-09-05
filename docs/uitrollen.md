@@ -11,7 +11,7 @@ half uur, het meeste daarvan is klikken door instellingen.
    **Frankfurt (eu-central-1)** of een andere EU-regio (keuze A3).
 2. Ga naar *SQL Editor* en voer de migraties uit, in volgorde:
    `supabase/migrations/20260904120000_basis.sql` tot en met
-   `…120400_rechten.sql`. Daarna `supabase/seed.sql`.
+   `…20260905090000_facturen.sql`. Daarna `supabase/seed.sql`.
 
    Heb je de Supabase CLI: `supabase link` en `supabase db push` doen
    hetzelfde.
@@ -68,6 +68,12 @@ toe met hun e-mailadres, functie en rechten, en zet je per persoon een kostprijs
 Zodra een collega inlogt met dat adres, is het account gekoppeld.
 
 Tarieven en de kilometervergoeding staan onder *Beheer → Tarieven*.
+
+Vóór de eerste factuur: vul onder *Beheer → Bedrijfsgegevens* naam, adres,
+KvK, btw-nummer en IBAN in (die komen op de factuur) en neem onder *Beheer →
+Grootboek en btw* de grootboeknummers over zoals je boekhoudpakket ze kent; de
+voorbeeldnummers 8000–8090 mag je hernoemen. Zet daar ook de betaaltermijn en
+de voettekst.
 
 ## 5. Controleren
 

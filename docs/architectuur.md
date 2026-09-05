@@ -76,22 +76,57 @@ account.
 | `/beheer/medewerkers` | Medewerkers, rechten en kostprijs per periode (B3a, D2a) |
 | `/goedkeuren` | Ingediende weken beoordelen; goedkeuren bevriest de bedragen (D1a, B4a) |
 | `/inzicht` | Uren, omzet, kosten, marge en budget per periode (E1a) |
-| `/facturen` | Factuurvoorstel per klant; markeren als gefactureerd zet de regels op slot |
-| `/facturen/[ref]` | Eén factuur: regels, specificatie, correcties met tegenboeking (D3a) |
-| `/api/specificatie` | Urenspecificatie als PDF, per klant of per factuur (E3a) |
-| `/beheer/instellingen` | Bedrijfsgegevens voor bovenaan de specificatie |
+| `/facturen` | Openstaand en vervallen, concepten, automatische abonnementsfacturen, factuurvoorstel per project, losse factuur, journaalexport |
+| `/facturen/[id]` | Eén factuur: concept bewerken (regels, btw, grootboek), definitief maken, betaald, crediteren, correcties met tegenboeking (D3a) |
+| `/api/factuur` | De factuur als PDF, met de urenspecificatie als bijlage |
+| `/api/specificatie` | Urenspecificatie als PDF, per factuur of per project en periode (E3a) |
+| `/api/export/facturen` | Journaal voor de boekhouding: per factuurregel één rij met grootboek en btw (E2) |
+| `/beheer/instellingen` | Bedrijfsgegevens voor bovenaan factuur en specificatie |
+| `/beheer/grootboek` | Grootboekrekeningen, standaardrekening per soort regel, btw-tarieven, betaaltermijn, voettekst |
 | `/export` → `/api/export` | CSV van uren of ritten (E2a) |
 
 ## Factureren
 
-Een factuur is geen eigen tabel. De eigenaar kiest een project, ziet wat er te
-factureren staat en geeft een factuurnummer op; dat nummer komt als
-`factuur_referentie` op elke regel en termijn, en de status wordt
-`gefactureerd`. Vanaf dat moment weigeren de triggers uit de migraties elke
-wijziging. De factuur zelf maak je in het boekhoudpakket (keuze E2a); de app
-levert de specificatie als bijlage.
+De app maakt de factuur zelf (keuze E2, gewijzigd naar c: factureren in de
+app, met een koppeling naar de boekhouding voorbereid). De eigenaar kiest een
+project, ziet wat er te factureren staat — goedgekeurde uren en ritten in een
+periode, open termijnen — en maakt daar een **concept** van. De functie
+`maak_factuur()` in de database bouwt de regels: uren gegroepeerd per onderdeel
+en tarief, reiskosten per kilometertarief, elke aangevinkte termijn als eigen
+regel. Uren, ritten en termijnen krijgen meteen `factuur_id`, zodat ze niet in
+een tweede voorstel opduiken; een verwijderd concept geeft ze weer vrij.
 
-Twee modellen per project (keuze B5b):
+Een concept is bewerkbaar: omschrijving, aantal, prijs, btw-code en
+grootboekrekening per regel, extra regels erbij, referentie van de klant. De
+totalen worden in de database herberekend (`herbereken_factuur()`, btw per regel
+afgerond). **Definitief maken** (`maak_definitief()`) geeft het volgende nummer
+uit de reeks `JJJJ-NNN`, zet de vervaldatum op factuurdatum plus de
+betaaltermijn uit de instellingen, stempelt `gefactureerd` en de referentie op
+de onderliggende regels en zet alles op slot — de triggers uit de migraties
+weigeren vanaf dan elke wijziging aan factuur, regels, uren en termijnen.
+Daarna: **betaald** (met datum) of **gecrediteerd** via `crediteer_factuur()`,
+dat een nieuwe definitieve factuur maakt met dezelfde regels met een min ervoor.
+Een creditfactuur hoort bij het origineel (`credit_van_id`); de uren blijven
+gefactureerd, en klopt een aantal uren niet, dan is er de correctie hieronder.
+
+Elke regel draagt een **btw-code** (tabel `btw_tarief`: hoog, laag, nul,
+verlegd, vrijgesteld — percentage instelbaar) en een **grootboekrekening**
+(tabel `grootboekrekening`). De code en het percentage en het rekeningnummer
+worden op de regel vastgelegd, zodat een latere wijziging in het beheer een
+oude factuur niet verandert. Welke rekening een regel krijgt bepaalt
+`grootboek_voor()`: een rekening op het project gaat voor, anders de
+standaardrekening per soort regel uit `instellingen` (uren, reiskosten,
+termijnen vaste prijs, abonnementen, overig). De klant draagt de standaard
+btw-code; per regel kun je afwijken.
+
+Voor de boekhouding is er `v_factuur_journaal`: per factuurregel één rij met
+factuurnummer, datum, vervaldatum, klant, grootboeknummer, btw-code en
+-bedrag. `/api/export/facturen` levert die als CSV over een periode, desgewenst
+alleen wat nog niet geëxporteerd is, en zet dan `geexporteerd_op` op de
+factuur. Een directe koppeling met een pakket (E2b) stuurt straks dezelfde
+kolommen door; de export blijft ernaast bestaan als controle en als uitweg.
+
+Drie modellen per project (keuze B5b):
 
 - **Nacalculatie** — de goedgekeurde uren en ritten in een periode, tegen het
   bevroren tarief.
@@ -104,9 +139,12 @@ Twee modellen per project (keuze B5b):
   de som van de gefactureerde termijnen; het effectieve uurtarief is die som
   gedeeld door de bestede uren — het getal dat bij een vaste prijs telt.
 
-De view `v_factuur` telt per referentie de bevroren bedragen op. Omdat hij op
-de afgeschermde views leunt, ziet een medewerker zijn eigen factuurregels maar
-geen bedrag — dat is getest in `supabase/tests/10_schema_test.sql` (test 18).
+De view `v_factuur` geeft per factuur status, totalen, openstaand bedrag,
+vervallen ja/nee en het aantal minuten en kilometers dat eraan hangt. Facturen
+zijn alleen zichtbaar vanaf projectleider en alleen de eigenaar mag ze maken;
+`maak_factuur()` en de andere factuurfuncties draaien als aanroeper, dus de
+rechten van de tabellen gelden ook daar — getest in
+`supabase/tests/10_schema_test.sql` (tests 18, 19 en 21).
 
 **Corrigeren** (keuze D3a): het origineel blijft staan. Er komt een tegenboeking
 bij met negatieve minuten, `correctie_van_id` naar het origineel, en als
@@ -118,10 +156,11 @@ huidige periode en verschijnen in het volgende factuurvoorstel van die klant.
 - **Abonnement** — een vast bedrag per maand, kwartaal of jaar. De functie
   `verwerk_periodieke_facturen()` maakt per verstreken periode één termijn aan
   (uniek op project en periode, dus de functie mag zo vaak draaien als je
-  wilt) en geeft die, als *automatisch factureren* aanstaat, meteen een
-  nummer uit de reeks `JJJJ-NNN` in `instellingen`. De goedgekeurde uren van
-  vóór die periode gaan mee als verantwoording. Een handmatig nummer in
-  dezelfde vorm schuift de teller mee, zodat de reeks nooit botst.
+  wilt) en maakt daar, als *automatisch factureren* aanstaat, meteen een
+  definitieve factuur van via `maak_factuur()` en `maak_definitief()`, met
+  een nummer uit de reeks en de goedgekeurde uren van vóór die periode als
+  verantwoording. Staat het vinkje uit, dan verschijnt de periode als open
+  termijn in het factuurvoorstel.
 
   De verwerking draait op twee manieren: dagelijks via Vercel Cron
   (`vercel.json` → `/api/cron/facturen`, beveiligd met `CRON_SECRET`), en
@@ -131,16 +170,20 @@ huidige periode en verschijnen in het volgende factuurvoorstel van die klant.
   '15 5 * * *', $$select verwerk_periodieke_facturen()$$)`.
 
   Automatische facturen staan bovenaan het factuurscherm tot de eigenaar ze
-  in de boekhouding heeft overgenomen en afvinkt (`termijn.verwerkt_op`).
+  heeft verstuurd en afvinkt (`factuur.verwerkt_op`).
 
-## De specificatie
+## Factuur en specificatie als PDF
 
-`lib/pdf.ts` tekent de PDF met pdfkit: A4, Helvetica, per project een blok met
-subtotaal, reiskosten apart, totaal exclusief btw. Per klant is instelbaar of
-omschrijvingen en tarieven erop staan (`klant.specificatie_omschrijving`,
-`klant.specificatie_tarieven`); met `?detail=vol` krijg je altijd alles, voor
-intern gebruik. pdfkit staat in `serverExternalPackages`, anders raakt het zijn
-lettertypen kwijt in de bundel.
+`lib/pdf.ts` tekent beide met pdfkit: A4, Helvetica, één kolomraster. De
+factuur heeft de regels met btw-percentage, subtotaal, btw per tarief, totaal,
+de betaalinstructie met IBAN en vervaldatum, en de voettekst uit de
+instellingen; bij btw verlegd staat dat erbij. Standaard hangt de
+urenspecificatie erachter als bijlage (`/api/factuur?id=…`, met `bijlage=nee`
+zonder). De specificatie toont per project een blok met subtotaal, reiskosten
+apart en termijnen; per klant is instelbaar of omschrijvingen en tarieven erop
+staan (`klant.specificatie_omschrijving`, `klant.specificatie_tarieven`); met
+`?detail=vol` krijg je altijd alles, voor intern gebruik. pdfkit staat in
+`serverExternalPackages`, anders raakt het zijn lettertypen kwijt in de bundel.
 
 ## Inzicht en grafieken
 

@@ -46,6 +46,7 @@ export default async function BeheerPagina() {
         <Link href="/beheer/tarieven" className="knop knop-stil">Tarieven</Link>
         {eigenaar && <Link href="/beheer/medewerkers" className="knop knop-stil">Medewerkers</Link>}
         {eigenaar && <Link href="/beheer/instellingen" className="knop knop-stil">Bedrijfsgegevens</Link>}
+        {eigenaar && <Link href="/beheer/grootboek" className="knop knop-stil">Grootboek en btw</Link>}
         <Link href="/export" className="knop knop-stil">Exporteren</Link>
       </nav>
 

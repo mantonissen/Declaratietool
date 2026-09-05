@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { vereisteSessie, magBeheren, zietBedragen } from "@/lib/auth";
 import { alsGebruiker } from "@/lib/db";
-import { termijnenVan } from "@/lib/facturatie";
+import { termijnenVan, grootboekrekeningen } from "@/lib/facturatie";
 import { euro, getal, korteDatum } from "@/lib/datum";
 import { nieuwOnderdeel, wisselOnderdeel, werkProjectBij } from "../../acties";
 import { termijnToevoegen, termijnVerwijderen } from "../../../facturen/acties";
@@ -27,7 +27,7 @@ export default async function ProjectPagina({
                p.vaste_prijs::float8 as vaste_prijs, p.budget_bedrag::float8 as budget_bedrag,
                p.herhaal_interval::text as herhaal_interval, p.herhaal_bedrag::float8 as herhaal_bedrag,
                p.herhaal_omschrijving, p.herhaal_start, p.herhaal_einde, p.herhaal_volgende,
-               p.automatisch_factureren,
+               p.automatisch_factureren, p.grootboek_id,
                k.naam as klant, p.budget_uren::float8 as budget_uren
         from project p join klant k on k.id = p.klant_id
         where p.id = ${id}
@@ -61,6 +61,7 @@ export default async function ProjectPagina({
   const vast = project.model === "vaste_prijs";
   const abonnement = project.model === "abonnement";
   const termijnen = zietBedragen(sessie.rechten) ? await termijnenVan(sessie, id) : [];
+  const rekeningen = eigenaar ? (await grootboekrekeningen(sessie)).filter((r) => r.actief || r.id === project.grootboek_id) : [];
   const termijnTotaal = termijnen.reduce((s, t) => s + t.bedrag, 0);
 
   return (
@@ -113,13 +114,13 @@ export default async function ProjectPagina({
           <label className="flex flex-col gap-2"><span className="label">Naam</span><input name="naam" required defaultValue={project.naam as string} className="veld" /></label>
           <label className="flex flex-col gap-2"><span className="label">Code</span><input name="code" defaultValue={(project.code as string) ?? ""} className="veld cijfers" /></label>
           <label className="flex flex-col gap-2"><span className="label">Status</span>
-            <select name="status" defaultValue={project.status as string} className="veld">
+            <select key={project.status as string} name="status" defaultValue={project.status as string} className="veld">
               <option value="concept">Concept</option><option value="actief">Actief</option>
               <option value="afgerond">Afgerond</option><option value="gearchiveerd">Gearchiveerd</option>
             </select></label>
           <label className="flex flex-col gap-2"><span className="label">Budget in uren</span><input name="budgetUren" inputMode="decimal" defaultValue={project.budget_uren === null ? "" : String(project.budget_uren)} className="veld cijfers" /></label>
           <label className="flex flex-col gap-2"><span className="label">Facturatie</span>
-            <select name="facturatiemodel" defaultValue={project.model as string} className="veld" disabled={!eigenaar}>
+            <select key={project.model as string} name="facturatiemodel" defaultValue={project.model as string} className="veld" disabled={!eigenaar}>
               <option value="nacalculatie">Nacalculatie — uren × tarief</option>
               <option value="vaste_prijs">Vaste prijs — in termijnen</option>
               <option value="abonnement">Abonnement — vast bedrag per periode</option>
@@ -128,13 +129,24 @@ export default async function ProjectPagina({
           </label>
           <label className="flex flex-col gap-2"><span className="label">Vaste prijs (bij dat model)</span>
             <input name="vastePrijs" inputMode="decimal" defaultValue={project.vaste_prijs === null ? "" : String(project.vaste_prijs)} className="veld cijfers" placeholder="afgesproken som excl. btw" /></label>
+          {eigenaar && (
+            <label className="flex flex-col gap-2 sm:col-span-2"><span className="label">Grootboekrekening voor de omzet</span>
+              {/* key op de waarde: na een server-actie zet React het formulier terug,
+                  en een select zou anders de oude keuze tonen */}
+              <select key={(project.grootboek_id as string) ?? "geen"} name="grootboekId" defaultValue={(project.grootboek_id as string) ?? ""} className="veld">
+                <option value="">Standaard voor dit soort project</option>
+                {rekeningen.map((r) => <option key={r.id} value={r.id}>{r.nummer} · {r.naam}</option>)}
+              </select>
+              <span className="text-xs text-muted">Waar de uren of termijnen van dit project in de boekhouding landen. Reiskosten houden hun eigen rekening.</span>
+            </label>
+          )}
         </div>
 
         {eigenaar && (
           <fieldset className="grid gap-4 border-t border-line pt-4 sm:grid-cols-2">
             <legend className="label mb-1">Abonnement (bij dat model)</legend>
             <label className="flex flex-col gap-2"><span className="label">Elke</span>
-              <select name="herhaalInterval" defaultValue={(project.herhaal_interval as string) ?? "maand"} className="veld">
+              <select key={(project.herhaal_interval as string) ?? "maand"} name="herhaalInterval" defaultValue={(project.herhaal_interval as string) ?? "maand"} className="veld">
                 <option value="maand">Maand</option><option value="kwartaal">Kwartaal</option><option value="jaar">Jaar</option>
               </select></label>
             <label className="flex flex-col gap-2"><span className="label">Bedrag per periode</span>

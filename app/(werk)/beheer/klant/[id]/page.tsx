@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { vereisteSessie, magBeheren } from "@/lib/auth";
 import { alsGebruiker } from "@/lib/db";
 import { getal } from "@/lib/datum";
+import { btwTarieven } from "@/lib/facturatie";
 import { werkKlantBij, nieuwProject } from "../../acties";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +21,7 @@ export default async function KlantPagina({
     await tx`
       select id, naam, code, plaats, adres, postcode, contactpersoon,
              factuur_referentie, specificatie_omschrijving, specificatie_tarieven,
-             afstand_km::float8 as afstand_km, actief
+             btw_code, afstand_km::float8 as afstand_km, actief
       from klant where id = ${id}
     `,
     await tx`
@@ -36,6 +37,8 @@ export default async function KlantPagina({
 
   const klant = klanten[0];
   if (!klant) notFound();
+  const eigenaar = sessie.rechten === "eigenaar";
+  const btw = eigenaar ? await btwTarieven(sessie) : [];
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-5 md:px-8 md:py-8">
@@ -116,6 +119,17 @@ export default async function KlantPagina({
             <span className="label">Referentie van de klant</span>
             <input name="factuurReferentie" defaultValue={(klant.factuur_referentie as string) ?? ""} className="veld" placeholder="Inkoopnummer of PO" />
           </label>
+          {eigenaar && (
+            <label className="flex flex-col gap-2">
+              <span className="label">Btw op facturen</span>
+              <select key={klant.btw_code as string} name="btwCode" defaultValue={klant.btw_code as string} className="veld">
+                {btw.filter((t) => t.actief || t.code === klant.btw_code).map((t) => (
+                  <option key={t.code} value={t.code}>{t.omschrijving} ({getal(t.percentage, 0)}%)</option>
+                ))}
+              </select>
+              <span className="text-xs text-muted">Per factuurregel nog aan te passen; verlegd voor buitenlandse zakelijke klanten.</span>
+            </label>
+          )}
         </div>
         <fieldset className="flex flex-col gap-2 border-t border-line pt-4">
           <legend className="label mb-1">Urenspecificatie voor deze klant</legend>
