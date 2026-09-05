@@ -11,7 +11,7 @@ half uur, het meeste daarvan is klikken door instellingen.
    **Frankfurt (eu-central-1)** of een andere EU-regio (keuze A3).
 2. Ga naar *SQL Editor* en voer de migraties uit, in volgorde:
    `supabase/migrations/20260904120000_basis.sql` tot en met
-   `…20260905120000_boekhouding.sql`. Daarna `supabase/seed.sql`.
+   `…20260906090000_jaarwerk.sql`. Daarna `supabase/seed.sql`.
 
    Heb je de Supabase CLI: `supabase link` en `supabase db push` doen
    hetzelfde.
@@ -78,8 +78,16 @@ betaaltermijn en de voettekst.
 
 Begin je halverwege een jaar met deze boekhouding? Boek dan onder
 *Boekhouding* eerst de beginbalans als memoriaal: het banksaldo debet op
-Bank, hetzelfde bedrag credit op Eigen vermogen; openstaande facturen en
-inkopen van vóór die datum voer je gewoon in, ze boeken zichzelf.
+Bank, het aandelenkapitaal credit op 0500 en de rest credit op Overige
+reserves; openstaande facturen en inkopen van vóór die datum voer je gewoon
+in, ze boeken zichzelf. Bestaande apparatuur zet je onder *Vaste activa* met
+de oorspronkelijke aanschafdatum; afschrijven tot en met vandaag haalt de
+achterstand in.
+
+Voor het loon: vul onder *Bedrijfsgegevens* het loonheffingennummer in, loop
+onder *Boekhouding → Loon → Parameters* de tarieven en premies van het jaar na
+(de Whk-premie staat in je beschikking van de Belastingdienst) en vink ze af,
+en maak per medewerker een dienstverband aan — ook voor de dga.
 
 ## 5. Controleren
 

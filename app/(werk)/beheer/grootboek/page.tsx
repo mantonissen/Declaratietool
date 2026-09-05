@@ -6,7 +6,7 @@ import { getal } from "@/lib/datum";
 import {
   grootboekrekeningen, btwTarieven, factuurInstellingen, volgendNummerSuggestie, REKENING_SOORTEN, SOORT_LABEL,
 } from "@/lib/facturatie";
-import { boekhoudInstellingen } from "@/lib/boekhouding";
+import { boekhoudInstellingen, RUBRIEKEN, RUBRIEK_LABEL, type Rubriek } from "@/lib/boekhouding";
 import { grootboekErbij, grootboekOpslaan, btwOpslaan, factuurInstellingenOpslaan, boekhoudRekeningenOpslaan } from "./acties";
 
 export const dynamic = "force-dynamic";
@@ -73,6 +73,12 @@ export default async function GrootboekPagina() {
                       Naam <span className="normal-case tracking-normal text-muted">· {SOORT_LABEL[r.soort]} · {n === 0 ? "nog niet gebruikt" : `${n} boekingsregel${n === 1 ? "" : "s"}`}</span>
                     </span>
                     <input name="naam" required defaultValue={r.naam} maxLength={120} className="veld min-h-10 py-1" />
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    <span className="label">In de jaarrekening</span>
+                    <select key={r.rubriek} name="rubriek" defaultValue={r.rubriek} className="veld min-h-10 w-52 py-1 text-sm">
+                      {RUBRIEKEN.map((rb) => <option key={rb} value={rb}>{RUBRIEK_LABEL[rb as Rubriek]}</option>)}
+                    </select>
                   </label>
                   <div className="flex min-h-10 items-center gap-3">
                     <label className="flex items-center gap-2 text-sm">

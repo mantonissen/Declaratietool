@@ -904,4 +904,195 @@ begin
 end
 $$;
 
+-- ------------------------------------------------- 23. jaarwerk en vpb -----
+
+do $$
+declare
+  a_id   uuid;
+  n      int;
+  s      numeric;
+  r      record;
+  bank   uuid;
+begin
+  set local role authenticated;
+  perform set_config('request.jwt.claim.sub',
+                     '11111111-1111-1111-1111-111111111111', true);
+  select id into bank from grootboekrekening where nummer = '1100';
+
+  -- Rubrieken: nieuwe rekening krijgt er een naar soort.
+  insert into grootboekrekening (nummer, naam, soort) values ('4610', 'Beurzen', 'kosten');
+  if (select rubriek from grootboekrekening where nummer = '4610') <> 'overige_bedrijfskosten' then
+    raise exception 'Nieuwe kostenrekening hoort onder overige bedrijfskosten te vallen';
+  end if;
+
+  -- Activum van 3600 met restwaarde 0 in 36 maanden, gekocht 15 januari:
+  -- t/m 30 juni zijn dat 5 maanden a 100.
+  insert into activum (omschrijving, aanschafdatum, aanschafwaarde, afschrijvingsmaanden,
+                       grootboek_activa, grootboek_afschrijving, grootboek_kosten)
+  values ('Laptop', '2026-01-15', 3600, 36,
+          (select id from grootboekrekening where nummer = '0100'),
+          (select id from grootboekrekening where nummer = '0150'),
+          (select id from grootboekrekening where nummer = '4990'))
+  returning id into a_id;
+  n := boek_afschrijvingen('2026-06-30');
+  if n <> 5 then raise exception 'Verwacht 5 afschrijvingsboekingen t/m juni, kreeg %', n; end if;
+  n := boek_afschrijvingen('2026-06-30');
+  if n <> 0 then raise exception 'Nogmaals afschrijven hoort niets te doen, deed %', n; end if;
+  select saldo into s from grootboek_saldi('2026-01-01', '2026-12-31') where nummer = '4990';
+  if s <> 500 then raise exception 'Afschrijvingskosten horen 500 te zijn, kreeg %', s; end if;
+  select saldo into s from grootboek_saldi('1900-01-01', '2026-12-31') where nummer = '0150';
+  if s <> -500 then raise exception 'Cumulatieve afschrijving hoort -500 te zijn, kreeg %', s; end if;
+
+  -- Vennootschapsbelasting: 19% over het (afgeronde) resultaat, gereserveerd
+  -- op 31-12, en het resultaat na belasting daalt ermee.
+  s := resultaat_voor_belasting(2026);
+  select * into r from vpb_berekening(2026);
+  if r.resultaat <> s or r.vpb <> floor(floor(s) * 0.19) then
+    raise exception 'Vpb hoort 19%% van % te zijn, kreeg %', s, r.vpb;
+  end if;
+  update boekjaar set vpb_correcties = 1000 where jaar = 2026;
+  if not found then insert into boekjaar (jaar, vpb_correcties) values (2026, 1000); end if;
+  select * into r from vpb_berekening(2026);
+  if r.belastbaar <> floor(s + 1000) then raise exception 'Correcties horen bij het belastbare bedrag te komen'; end if;
+  s := reserveer_vpb(2026);
+  if s <> r.vpb then raise exception 'Gereserveerd hoort % te zijn, kreeg %', r.vpb, s; end if;
+  select saldo into s from grootboek_saldi('2026-01-01', '2026-12-31') where nummer = '0700';
+  if s <> -r.vpb then raise exception 'Te betalen vpb hoort -% te zijn, kreeg %', r.vpb, s; end if;
+  if resultaat_voor_belasting(2026) <> r.resultaat then
+    raise exception 'De vpb-boeking hoort het resultaat vóór belasting niet te raken';
+  end if;
+  -- Opnieuw reserveren vervangt de boeking.
+  perform reserveer_vpb(2026);
+  select count(*) into n from boeking where omschrijving = 'Vennootschapsbelasting 2026';
+  if n <> 1 then raise exception 'Er hoort precies één vpb-boeking te zijn, zag %', n; end if;
+  perform boek_betaling_vpb(2026, '2027-03-01', bank);
+  select saldo into s from grootboek_saldi('1900-01-01', '2100-01-01') where nummer = '0700';
+  if s <> 0 then raise exception 'Na betaling hoort 0700 op nul te staan, kreeg %', s; end if;
+
+  reset role;
+  raise notice 'OK 23. jaarwerk: rubrieken, afschrijving per maand, vpb berekend, gereserveerd en betaald';
+end
+$$;
+
+-- --------------------------------------------------------- 24. loon --------
+
+do $$
+declare
+  run_id uuid;
+  s      record;
+  t      record;
+  n      int;
+  lh     numeric;
+  bank   uuid;
+begin
+  set local role authenticated;
+  perform set_config('request.jwt.claim.sub',
+                     '11111111-1111-1111-1111-111111111111', true);
+  select id into bank from grootboekrekening where nummer = '1100';
+
+  -- Loonheffing 2026: onder de eerste schijf zonder korting = tarief schijf 1.
+  lh := loonheffing_jaar(30000, 2026, false);
+  if lh <> round(30000 * 35.70 / 100, 2) then raise exception 'Loonheffing zonder korting klopt niet: %', lh; end if;
+  -- Met korting lager, nooit negatief, en oplopend met het loon.
+  if loonheffing_jaar(30000, 2026, true) >= lh then raise exception 'Heffingskortingen horen de heffing te verlagen'; end if;
+  if loonheffing_jaar(5000, 2026, true) <> 0 then raise exception 'Een laag loon hoort met korting op nul uit te komen'; end if;
+  if loonheffing_jaar(90000, 2026, true) <= loonheffing_jaar(60000, 2026, true) then raise exception 'Heffing hoort op te lopen'; end if;
+
+  -- Twee dienstverbanden: een medewerker met vast contract, en de dga.
+  insert into dienstverband (medewerker_id, in_dienst, bruto_maandloon, pensioen_wn_pct, pensioen_wg_pct)
+  values ('bbbbbbbb-0000-0000-0000-000000000002', '2026-01-01', 4000, 4, 8);
+  insert into dienstverband (medewerker_id, in_dienst, bruto_maandloon, dga, onbepaalde_tijd)
+  values ('bbbbbbbb-0000-0000-0000-000000000001', '2026-01-01', 5000, true, true);
+  -- Halverwege in dienst: 16 t/m 31 juli = 16/31 van de maand.
+  insert into dienstverband (medewerker_id, in_dienst, bruto_maandloon, onbepaalde_tijd)
+  values ('bbbbbbbb-0000-0000-0000-000000000003', '2026-07-16', 3100, false);
+  begin
+    insert into dienstverband (medewerker_id, in_dienst, bruto_maandloon)
+    values ('bbbbbbbb-0000-0000-0000-000000000002', '2026-06-01', 1);
+    raise exception 'Overlappend dienstverband had geweigerd moeten worden';
+  exception when exclusion_violation then null;
+  end;
+
+  run_id := maak_loonrun(2026, 7, false);
+  select count(*) into n from loonstrook where loonrun_id = run_id;
+  if n <> 3 then raise exception 'Verwacht 3 loonstroken, kreeg %', n; end if;
+
+  select * into s from loonstrook where loonrun_id = run_id and medewerker_id = 'bbbbbbbb-0000-0000-0000-000000000002';
+  if s.bruto <> 4000 or s.vakantiegeld_opbouw <> 320 or s.pensioen_wn <> 160 or s.pensioen_wg <> 320 or s.loon_lh <> 3840 then
+    raise exception 'Strook medewerker klopt niet: % % % % %', s.bruto, s.vakantiegeld_opbouw, s.pensioen_wn, s.pensioen_wg, s.loon_lh;
+  end if;
+  if s.loonheffing <> round(loonheffing_jaar(3840 * 12, 2026, true) / 12, 2) then raise exception 'Loonheffing op de strook klopt niet'; end if;
+  if s.netto <> s.bruto - s.pensioen_wn - s.loonheffing then raise exception 'Netto klopt niet: %', s.netto; end if;
+  if s.awf <> round(3840 * 2.74 / 100, 2) or s.zvw_wg <> round(3840 * 6.51 / 100, 2) or s.zvw_wn <> 0 then
+    raise exception 'Werkgeverspremies kloppen niet: % %', s.awf, s.zvw_wg;
+  end if;
+
+  select * into s from loonstrook where loonrun_id = run_id and medewerker_id = 'bbbbbbbb-0000-0000-0000-000000000001';
+  if s.awf <> 0 or s.aof <> 0 or s.zvw_wg <> 0 or s.zvw_wn <> round(5000 * 5.26 / 100, 2) then
+    raise exception 'Dga hoort geen werknemersverzekeringen te hebben en wel zvw-inhouding: % %', s.awf, s.zvw_wn;
+  end if;
+
+  select * into s from loonstrook where loonrun_id = run_id and medewerker_id = 'bbbbbbbb-0000-0000-0000-000000000003';
+  if s.fractie <> round(16.0 / 31, 4) or s.bruto <> round(3100 * 16.0 / 31, 2) then
+    raise exception 'Deel van de maand klopt niet: % %', s.fractie, s.bruto;
+  end if;
+  if s.awf <> round(s.premieloon * 7.74 / 100, 2) then raise exception 'Flexibel contract hoort de hoge Awf-premie te krijgen'; end if;
+
+  -- Herberekenen van een concept mag; definitief boekt sluitend.
+  run_id := maak_loonrun(2026, 7, false);
+  perform maak_loonrun_definitief(run_id);
+  select coalesce(sum(debet), 0) as d, coalesce(sum(credit), 0) as c into t
+  from boekingsregel r join boeking b on b.id = r.boeking_id join loonrun l on l.boeking_id = b.id where l.id = run_id;
+  if t.d <> t.c or t.d = 0 then raise exception 'Loonjournaalpost sluit niet: % / %', t.d, t.c; end if;
+  select coalesce(sum(totale_kosten), 0) as kosten into t from loonstrook where loonrun_id = run_id;
+  select sum(saldo) into lh from grootboek_saldi('2026-07-01', '2026-07-31') where rubriek = 'personeelskosten';
+  if lh <> t.kosten then raise exception 'Personeelskosten horen % te zijn, kreeg %', t.kosten, lh; end if;
+  begin
+    update loonstrook set bruto = 1 where loonrun_id = run_id;
+    raise exception 'Definitieve loonstrook had op slot moeten zitten';
+  exception when restrict_violation then null;
+  end;
+  begin
+    perform maak_loonrun(2026, 7, false);
+    raise exception 'Definitieve run hoort niet herberekend te worden';
+  exception when raise_exception then null;
+  end;
+
+  -- Betalingen: netto, loonheffing en pensioen; schulden lopen naar nul.
+  perform boek_betaling_loonrun(run_id, 'netto', '2026-07-25', bank);
+  perform boek_betaling_loonrun(run_id, 'loonheffing', '2026-08-28', bank);
+  perform boek_betaling_loonrun(run_id, 'pensioen', '2026-08-05', bank);
+  select sum(saldo) into lh from grootboek_saldi('1900-01-01', '2100-01-01') where nummer in ('1800', '1810', '1820');
+  if lh <> 0 then raise exception 'Loonschulden horen betaald te zijn, restant %', lh; end if;
+  select saldo into lh from grootboek_saldi('1900-01-01', '2100-01-01') where nummer = '1830';
+  select -sum(vakantiegeld_opbouw) as reservering into t from loonstrook where loonrun_id = run_id;
+  if lh <> t.reservering then raise exception 'Vakantiegeldreservering hoort % te zijn, kreeg %', t.reservering, lh; end if;
+
+  -- Mei met vakantiegeld: alles wat gereserveerd is komt eruit, belast als bijzonder loon.
+  run_id := maak_loonrun(2026, 8, true);
+  select * into s from loonstrook where loonrun_id = run_id and medewerker_id = 'bbbbbbbb-0000-0000-0000-000000000002';
+  if s.vakantiegeld_uitbetaald <> 640 or s.loonheffing_bijzonder <= 0 then
+    raise exception 'Vakantiegeld hoort 320 + 320 = 640 te zijn met bijzondere heffing, kreeg % / %', s.vakantiegeld_uitbetaald, s.loonheffing_bijzonder;
+  end if;
+  reset role;
+
+  -- Medewerker: ziet alleen zijn eigen stroken, mag niets maken.
+  set local role authenticated;
+  perform set_config('request.jwt.claim.sub',
+                     '22222222-2222-2222-2222-222222222222', true);
+  select count(*) into n from loonstrook;
+  if n <> 2 then raise exception 'Medewerker hoort zijn 2 eigen stroken te zien, zag %', n; end if;
+  select count(*) into n from loonrun;
+  if n <> 0 then raise exception 'Medewerker zag % loonruns', n; end if;
+  begin
+    perform maak_loonrun(2026, 9, false);
+    raise exception 'Medewerker mocht een loonrun maken';
+  exception when insufficient_privilege or raise_exception then null;
+  end;
+  reset role;
+
+  raise notice 'OK 24. loon: heffing, stroken voor medewerker, dga en deeltijdmaand, journaalpost, betalingen, vakantiegeld';
+end
+$$;
+
 select 'Alle tests geslaagd.' as resultaat;

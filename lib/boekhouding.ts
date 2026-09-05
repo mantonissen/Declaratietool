@@ -46,20 +46,34 @@ export function periodeLabel(van: Datum, tot: Datum): string {
 
 // --------------------------------------------------------------- saldi ---
 
+export type Rubriek =
+  | "vaste_activa" | "vorderingen" | "liquide_middelen"
+  | "eigen_vermogen" | "langlopende_schulden" | "kortlopende_schulden"
+  | "netto_omzet" | "personeelskosten" | "afschrijvingen" | "overige_bedrijfskosten"
+  | "financiele_baten_lasten" | "belastingen";
+
+export const RUBRIEK_LABEL: Record<Rubriek, string> = {
+  vaste_activa: "Vaste activa", vorderingen: "Vorderingen", liquide_middelen: "Liquide middelen",
+  eigen_vermogen: "Eigen vermogen", langlopende_schulden: "Langlopende schulden", kortlopende_schulden: "Kortlopende schulden",
+  netto_omzet: "Netto-omzet", personeelskosten: "Personeelskosten", afschrijvingen: "Afschrijvingen",
+  overige_bedrijfskosten: "Overige bedrijfskosten", financiele_baten_lasten: "Financiële baten en lasten", belastingen: "Belastingen",
+};
+export const RUBRIEKEN = Object.keys(RUBRIEK_LABEL) as Rubriek[];
+
 export type Saldo = {
-  grootboekId: string; nummer: string; naam: string; soort: RekeningSoort; actief: boolean;
+  grootboekId: string; nummer: string; naam: string; soort: RekeningSoort; rubriek: Rubriek; actief: boolean;
   debet: number; credit: number; saldo: number;
 };
 
 export async function saldi(sessie: Sessie, van: Datum, tot: Datum): Promise<Saldo[]> {
   const rijen = await alsGebruiker(sessie.authUserId, (tx) => tx`
-    select grootboek_id, nummer, naam, soort::text as soort, actief,
+    select grootboek_id, nummer, naam, soort::text as soort, rubriek, actief,
            debet::float8 as debet, credit::float8 as credit, saldo::float8 as saldo
     from grootboek_saldi(${van}, ${tot})
   `);
   return rijen.map((r) => ({
     grootboekId: r.grootboek_id as string, nummer: r.nummer as string, naam: r.naam as string,
-    soort: r.soort as RekeningSoort, actief: Boolean(r.actief),
+    soort: r.soort as RekeningSoort, rubriek: r.rubriek as Rubriek, actief: Boolean(r.actief),
     debet: n(r.debet), credit: n(r.credit), saldo: n(r.saldo),
   }));
 }
@@ -70,9 +84,11 @@ export const getoond = (s: { soort: RekeningSoort; saldo: number }) =>
 
 export type Rapport = {
   van: Datum; tot: Datum;
-  omzet: Saldo[]; kosten: Saldo[]; resultaat: number;
+  omzet: Saldo[]; kosten: Saldo[]; belastingen: Saldo[];
+  resultaat: number;                    // vóór belasting
+  resultaatNaBelasting: number;
   activa: Saldo[]; passiva: Saldo[]; eigenVermogen: Saldo[];
-  resultaatCumulatief: number;          // winst van het begin tot en met `tot`, op de balans
+  resultaatCumulatief: number;          // resultaat na belasting van het begin tot en met `tot`, op de balans
   balansTotaal: number;
 };
 
@@ -80,12 +96,16 @@ export type Rapport = {
 export async function rapport(sessie: Sessie, van: Datum, tot: Datum): Promise<Rapport> {
   const [periode, cumulatief] = await Promise.all([saldi(sessie, van, tot), saldi(sessie, "1900-01-01", tot)]);
   const met = (lijst: Saldo[], soort: RekeningSoort) => lijst.filter((s) => s.soort === soort && (s.saldo !== 0 || s.debet !== 0));
-  const omzet = met(periode, "omzet"), kosten = met(periode, "kosten");
-  const resultaat = -omzet.reduce((a, s) => a + s.saldo, 0) - kosten.reduce((a, s) => a + s.saldo, 0);
-  const resultaatCumulatief = -cumulatief.filter((s) => s.soort === "omzet" || s.soort === "kosten").reduce((a, s) => a + s.saldo, 0);
+  const omzet = met(periode, "omzet");
+  const kosten = met(periode, "kosten").filter((s) => s.rubriek !== "belastingen");
+  const belastingen = met(periode, "kosten").filter((s) => s.rubriek === "belastingen");
+  const som = (l: Saldo[]) => l.reduce((a, s) => a + s.saldo, 0);
+  const resultaat = -som(omzet) - som(kosten);
+  const resultaatNaBelasting = resultaat - som(belastingen);
+  const resultaatCumulatief = -som(cumulatief.filter((s) => s.soort === "omzet" || s.soort === "kosten"));
   const activa = met(cumulatief, "activa"), passiva = met(cumulatief, "passiva"), eigenVermogen = met(cumulatief, "eigen_vermogen");
   return {
-    van, tot, omzet, kosten, resultaat, activa, passiva, eigenVermogen, resultaatCumulatief,
+    van, tot, omzet, kosten, belastingen, resultaat, resultaatNaBelasting, activa, passiva, eigenVermogen, resultaatCumulatief,
     balansTotaal: activa.reduce((a, s) => a + s.saldo, 0),
   };
 }

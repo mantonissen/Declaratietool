@@ -85,6 +85,10 @@ account.
 | `/boekhouding/rekening/[id]` | Grootboekkaart: mutaties op één rekening met lopend saldo |
 | `/boekhouding/inkoop` | Inkoopfacturen en kosten vastleggen, betalen, wijzigen |
 | `/boekhouding/btw` | Btw-aangifte per periode: rubrieken, vastleggen, ingediend, afgedragen |
+| `/boekhouding/activa` | Vaste activa vastleggen en maandelijks afschrijven |
+| `/boekhouding/jaarrekening` | Balans en W&V in jaarrekeningindeling met vorig jaar, vennootschapsbelasting, stappen tot deponeren, KvK-velden; PDF via `/api/jaarrekening` |
+| `/boekhouding/loon` | Dienstverbanden en loonruns; `/loon/[id]` de run met loonaangifte en betalingen; `/loon/parameters` de tarieven per jaar; loonstrook via `/api/loonstrook` |
+| `/boekhouding/aangiften` | Kalender van btw, loonaangifte, vpb en jaarrekening met deadlines en stand |
 | `/beheer/instellingen` | Bedrijfsgegevens voor bovenaan factuur en specificatie |
 | `/beheer/grootboek` | Rekeningschema, vaste rekeningen van de boekhouding, standaardrekening per soort regel, btw-tarieven, betaaltermijn, voettekst |
 | `/export` → `/api/export` | CSV van uren of ritten (E2a) |
@@ -213,9 +217,61 @@ boeking, wijziging of verwijdering met een datum tot en met die dag, en
 niemand de sleutel weggooit; de accountant zal vragen dat je het niet doet.
 
 Wat er bewust niet in zit: bankafschriften inlezen en afletteren (betalingen
-boek je op de factuur of inkoop), afschrijvingen (memoriaal), meerdere
-btw-tarieven op één inkoop (splits de bon), en de jaarrekening zelf — daar
-is de CSV van het journaal voor.
+boek je op de factuur of inkoop) en meerdere btw-tarieven op één inkoop
+(splits de bon).
+
+## Jaarwerk
+
+Elke rekening heeft een **rubriek** (`grootboekrekening.rubriek`): de post in
+de jaarrekening waar hij onder valt — vaste activa, vorderingen, liquide
+middelen, eigen vermogen, lang- en kortlopende schulden, netto-omzet,
+personeelskosten, afschrijvingen, overige bedrijfskosten, financiële baten en
+lasten, belastingen. `jaarrekening()` in `lib/jaarwerk.ts` groepeert de saldi
+daarop, met het vorige jaar ernaast, en berekent het eigen vermogen als
+kapitaal en reserves plus het cumulatieve resultaat van eerdere jaren en het
+onverdeelde resultaat van het boekjaar. Zo zijn afsluitboekingen overbodig; de
+balans sluit per constructie. De PDF (`lib/jaarrekening-pdf.ts`) heeft
+titelblad, balans, winst-en-verlies, toelichting met grondslagen en de
+publicatiestukken: de velden die de KvK-dienst *Zelf deponeren* vraagt voor
+een micro-onderneming.
+
+**Vaste activa** (`activum`) schrijven lineair per maand af vanaf de maand na
+aanschaf; `boek_afschrijvingen(tot)` boekt per activum per maand en is
+idempotent via `afgeschreven_tot`. **Vennootschapsbelasting**:
+`vpb_berekening(jaar)` neemt het resultaat vóór belasting (rubriek belastingen
+uitgezonderd), telt de correcties uit `boekjaar` erbij, trekt verrekend verlies
+af en past de schijven uit `vpb_parameters` toe; `reserveer_vpb` boekt kosten
+en schuld op 31-12 en vervangt een eerdere reservering. De stappen opmaken,
+vaststellen, deponeren en aangifte staan als datums op `boekjaar`.
+
+## Loon
+
+`dienstverband` legt per medewerker de arbeidsvoorwaarden vast (brutoloon,
+uren, vakantiegeld, pensioenpercentages, loonheffingskorting, contractvorm,
+dga). `loonparameters` per jaar bevat de schijven van de loonbelasting, de
+algemene heffingskorting en arbeidskorting, en de werkgeverspremies (Awf laag
+en hoog, Aof, Whk, Zvw) plus het maximumpremieloon; `gecontroleerd` zegt of de
+eigenaar ze tegen de tabellen van de Belastingdienst heeft gelegd.
+
+`loonheffing_jaar(jaarloon, jaar, korting)` rekent volgens de
+jaarloonmethode; `maak_loonrun(jaar, maand)` maakt per lopend dienstverband
+een `loonstrook`: pro rata bij in- of uitdiensttreding, loonheffing als een
+twaalfde van de jaarheffing over het geannualiseerde tabelloon, vakantiegeld
+belast als bijzondere beloning (verschil in jaarheffing), premies over het
+premieloon, voor een dga geen werknemersverzekeringen maar een ingehouden
+Zvw-bijdrage. `maak_loonrun_definitief` boekt de loonjournaalpost (lonen en
+vakantiegeld, sociale lasten en pensioen debet; netto, loonheffingen, pensioen
+en reservering vakantiegeld credit) en zet de stroken op slot;
+`boek_betaling_loonrun` betaalt netto, loonheffingen en pensioen af. De
+loonaangifte staat als rubrieken op het runscherm, klaar voor Mijn
+Belastingdienst Zakelijk; de loonstrook is een PDF die een medewerker ook
+zelf kan ophalen (RLS laat hem alleen zijn eigen stroken zien).
+
+De **aangiftenkalender** (`aangiftenKalender()`) leidt uit de administratie af
+wat er per jaar ingediend moet worden en hoe ver het staat: btw per tijdvak,
+loonaangifte per maand zodra er een dienstverband is, en na afloop van het
+jaar de vpb-aangifte, het opmaken en vaststellen van de jaarrekening en het
+deponeren, elk met de wettelijke uiterste datum.
 
 ## Factuur en specificatie als PDF
 

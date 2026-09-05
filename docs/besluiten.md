@@ -52,10 +52,16 @@ staan.
 
 ## Wat hiervan nog open staat
 
-- **E2** — de boekhouding zit in de app; de accountant krijgt het journaal als
-  CSV. Wat er niet in zit: bankafschriften inlezen (betalingen boek je op de
-  factuur of inkoop), afschrijvingen (als memoriaal te boeken) en de
-  jaarrekening zelf.
+- **E2** — de boekhouding, het jaarwerk en het loon zitten in de app; de
+  accountant krijgt het journaal als CSV en de jaarrekening als PDF. Wat er
+  niet in zit: bankafschriften inlezen (betalingen boek je op de factuur of
+  inkoop) en elektronisch indienen bij Belastingdienst en KvK — dat vraagt
+  een PKIoverheid-certificaat en Digipoort; de bedragen staan per rubriek
+  klaar voor de portalen.
+- **Loon** — de loonparameters (schijven, heffingskortingen, premies) staan
+  per jaar in de app, vooraf ingevuld naar beste weten. Leg ze elk jaar naast
+  het Handboek Loonheffingen en de premiebeschikking (Whk) en vink ze dan af;
+  tot die tijd waarschuwt de app bij elke loonrun.
 - **C3** — rijdt iemand in een auto van de zaak? Dan gelden er zwaardere eisen
   aan de rittenregistratie; dat is een vraag voor de boekhouder.
 - **B3** — de kostprijs per medewerker moet nog ingevuld worden. Een schatting

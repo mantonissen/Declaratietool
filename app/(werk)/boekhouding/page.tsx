@@ -45,7 +45,10 @@ export default async function BoekhoudingPagina({ searchParams }: { searchParams
         <Link href={`/boekhouding/journaal${qs}`} className="knop knop-stil">Journaal</Link>
         <Link href={`/boekhouding/inkoop${qs}`} className="knop knop-stil">Inkoop en kosten{kern.crediteurenAantal ? <span className="cijfers ml-1 rounded bg-warn-bg px-1.5 text-xs text-warn">{kern.crediteurenAantal}</span> : null}</Link>
         <Link href="/boekhouding/btw" className="knop knop-stil">Btw-aangifte</Link>
-        <Link href="/facturen" className="knop knop-stil">Facturen</Link>
+        <Link href="/boekhouding/loon" className="knop knop-stil">Loon</Link>
+        <Link href="/boekhouding/jaarrekening" className="knop knop-stil">Jaarrekening</Link>
+        <Link href="/boekhouding/aangiften" className="knop knop-stil">Aangiften</Link>
+        <Link href="/facturen" className="knop knop-kaal">Facturen</Link>
         <Link href="/beheer/grootboek" className="knop knop-kaal">Rekeningschema</Link>
       </nav>
 
@@ -79,10 +82,16 @@ export default async function BoekhoudingPagina({ searchParams }: { searchParams
               {r.kosten.map((s) => <Rij key={s.grootboekId} s={s} />)}
               {r.kosten.length === 0 && <tr><td colSpan={2} className="px-3 py-2 text-muted">Geen kosten geboekt.</td></tr>}
               <Totaal label="Totaal kosten" bedrag={som(r.kosten)} />
-              <Totaal label={r.resultaat >= 0 ? "Winst" : "Verlies"} bedrag={r.resultaat} sterk />
+              <Totaal label={r.resultaat >= 0 ? "Winst vóór belasting" : "Verlies vóór belasting"} bedrag={r.resultaat} sterk />
+              {r.belastingen.length > 0 && (
+                <>
+                  {r.belastingen.map((s) => <Rij key={s.grootboekId} s={s} />)}
+                  <Totaal label={r.resultaatNaBelasting >= 0 ? "Winst na belasting" : "Verlies na belasting"} bedrag={r.resultaatNaBelasting} sterk />
+                </>
+              )}
             </tbody>
           </table></div>
-          <p className="mt-2 text-xs text-muted">Voor belasting en zonder afschrijvingen, tenzij je die zelf als memoriaal boekt. De omzet is wat gefactureerd is, niet wat ontvangen is.</p>
+          <p className="mt-2 text-xs text-muted">De omzet is wat gefactureerd is, niet wat ontvangen is. Afschrijvingen komen uit <Link href="/boekhouding/activa" className="text-accent-ink">vaste activa</Link>, de vennootschapsbelasting uit het <Link href="/boekhouding/jaarrekening" className="text-accent-ink">jaarwerk</Link>.</p>
         </section>
 
         <section>

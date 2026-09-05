@@ -9,13 +9,13 @@ import { euro, getal, korteDatum, minutenAlsUren, type Datum } from "./datum";
 // het document dat de klant betaalt; de specificatie is de bijlage die
 // uitlegt waar het bedrag vandaan komt. Ze delen kop, voet en kolomraster.
 
-type Doc = InstanceType<typeof PDFDocument>;
+export type Doc = InstanceType<typeof PDFDocument>;
 
-const A4 = { b: 595.28, h: 841.89 };
-const M = 48;
-const INK = "#111716";
-const GRIJS = "#6c7873";
-const LIJN = "#d5dad2";
+export const A4 = { b: 595.28, h: 841.89 };
+export const M = 48;
+export const INK = "#111716";
+export const GRIJS = "#6c7873";
+export const LIJN = "#d5dad2";
 
 const DOEL: Record<string, string> = {
   klantbezoek: "Klantbezoek", locatiebezoek: "Locatiebezoek", overleg: "Overleg",
@@ -32,7 +32,7 @@ function volleDatum(d: Datum): string {
 type Kop = { bedrijf: Bedrijf; klant: KlantKop; titel: string; meta: [string, string][] };
 
 /** Kop met bedrijf rechts, klant links en een metablok. Geeft de nieuwe y. */
-function tekenKop(doc: Doc, k: Kop): number {
+export function tekenKop(doc: Doc, k: Kop): number {
   const breed = A4.b - 2 * M;
   let y = M;
   doc.font("Helvetica-Bold").fontSize(16).fillColor(INK).text(k.titel, M, y);
@@ -72,7 +72,7 @@ function tekenKop(doc: Doc, k: Kop): number {
   return Math.max(y + (adres.length + 1) * 11, my) + 18;
 }
 
-function tekenVoet(doc: Doc, tekst: string) {
+export function tekenVoet(doc: Doc, tekst: string) {
   const breed = A4.b - 2 * M;
   const paginas = doc.bufferedPageRange();
   for (let i = 0; i < paginas.count; i++) {
@@ -89,7 +89,7 @@ function tekenVoet(doc: Doc, tekst: string) {
 }
 
 /** Een tabel met kolommen op een vaste breedte; regels wikkelen en breken over pagina's. */
-class Tabel {
+export class Tabel {
   private y: number;
   constructor(
     private doc: Doc,
@@ -354,7 +354,7 @@ export function tekenSpecificatie(doc: Doc, inv: SpecInvoer) {
 
 // ------------------------------------------------------------ uitvoer ----
 
-function nieuwDoc(titel: string, auteur: string): { doc: Doc; klaar: Promise<Buffer> } {
+export function nieuwDoc(titel: string, auteur: string): { doc: Doc; klaar: Promise<Buffer> } {
   const doc = new PDFDocument({ size: "A4", margin: M, bufferPages: true, info: { Title: titel, Author: auteur } });
   const delen: Buffer[] = [];
   doc.on("data", (d: Buffer) => delen.push(d));

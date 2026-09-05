@@ -135,10 +135,12 @@ export function leesMinuten(invoer: string, stap = 15): number | null {
 
 export function euro(bedrag: number | null | undefined): string {
   if (bedrag === null || bedrag === undefined) return "—";
+  // Geen "-0,00" na afronden of bij een negatieve nul.
+  const b = Math.abs(bedrag) < 0.005 ? 0 : bedrag;
   return new Intl.NumberFormat("nl-NL", {
     style: "currency",
     currency: "EUR",
-  }).format(bedrag);
+  }).format(b);
 }
 
 export function getal(waarde: number | null | undefined, decimalen = 1): string {

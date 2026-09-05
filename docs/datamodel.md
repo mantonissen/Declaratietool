@@ -242,6 +242,31 @@ sluit geweigerd, regels op slot, resultaat gelijk aan omzet min kosten,
 afsluiten dat boeken en verwijderen tegenhoudt, en een medewerker die niets
 ziet en niets boekt.
 
+## Jaarwerk en loon
+
+`grootboekrekening.rubriek` plaatst elke rekening in de jaarrekening; een
+trigger vult hem naar soort als hij ontbreekt. `activum` (aanschaf, restwaarde,
+afschrijvingsmaanden, drie rekeningen) met `boeking.activum_id` voor de
+afschrijvingsboekingen. `vpb_parameters` per jaar (grens en twee tarieven) en
+`boekjaar` per jaar: correcties en verrekend verlies voor de vpb, het
+gereserveerde bedrag met zijn boeking, en de datums van opmaken, vaststellen,
+deponeren, aangifte en betaling. `resultaat_voor_belasting(jaar)` en
+`vpb_berekening(jaar)` rekenen; `reserveer_vpb` en `boek_betaling_vpb` boeken.
+
+`loonparameters` per jaar met de schijven en heffingskortingen als json en de
+premies als kolommen; `dienstverband` per medewerker met een
+uitsluitingsbeperking tegen overlap; `loonrun` per jaar en maand (uniek) met
+status, journaalpost en de datums van aangifte en betalingen; `loonstrook`
+per run en medewerker met alle componenten, `werkgeverslasten` en
+`totale_kosten` als berekende kolommen. Een definitieve run zet zijn stroken
+op slot en is niet te verwijderen. Rechten: alles voor de eigenaar; een
+medewerker leest alleen zijn eigen loonstroken.
+
+Test 23 rekent afschrijving en vennootschapsbelasting door; test 24 de
+loonheffing (schijven, kortingen), stroken voor een werknemer, een dga en een
+deeltijdmaand, de sluitende journaalpost, de betalingen, het vakantiegeld als
+bijzondere beloning en de afscherming.
+
 ## Testen
 
 ```

@@ -63,6 +63,11 @@ export type Selectie =
 
 // ----------------------------------------------------------------- lezen ---
 
+/** Bedrijfsgegevens voor bovenaan een document. */
+export async function bedrijf(sessie: Sessie): Promise<Bedrijf> {
+  return alsGebruiker(sessie.authUserId, (tx) => bedrijfsgegevens(tx));
+}
+
 async function bedrijfsgegevens(tx: Parameters<Parameters<typeof alsGebruiker>[1]>[0]): Promise<Bedrijf> {
   const [b] = await tx`
     select bedrijfsnaam, adres, postcode, plaats, kvk_nummer, btw_nummer,
@@ -411,18 +416,19 @@ export const SOORT_LABEL: Record<RekeningSoort, string> = {
 };
 export type Grootboek = {
   id: string; nummer: string; naam: string; soort: RekeningSoort; actief: boolean;
-  betaalmiddel: boolean; btwCode: string | null;
+  betaalmiddel: boolean; btwCode: string | null; rubriek: string;
 };
 export type BtwTarief = { code: string; omschrijving: string; percentage: number; actief: boolean };
 
 export async function grootboekrekeningen(sessie: Sessie): Promise<Grootboek[]> {
   const rijen = await alsGebruiker(sessie.authUserId, (tx) => tx`
-    select id, nummer, naam, soort::text as soort, actief, betaalmiddel, btw_code
+    select id, nummer, naam, soort::text as soort, actief, betaalmiddel, btw_code, rubriek
     from grootboekrekening order by nummer
   `);
   return rijen.map((r) => ({
     id: r.id as string, nummer: r.nummer as string, naam: r.naam as string, soort: r.soort as RekeningSoort,
     actief: r.actief as boolean, betaalmiddel: Boolean(r.betaalmiddel), btwCode: (r.btw_code as string) ?? null,
+    rubriek: r.rubriek as string,
   }));
 }
 
@@ -440,9 +446,10 @@ export async function nieuweGrootboekrekening(sessie: Sessie, nummer: string, na
   `);
 }
 
-export async function werkGrootboekBij(sessie: Sessie, id: string, nummer: string, naam: string, actief: boolean, betaalmiddel: boolean) {
+export async function werkGrootboekBij(sessie: Sessie, id: string, nummer: string, naam: string, actief: boolean, betaalmiddel: boolean, rubriek: string | null = null) {
   await alsGebruiker(sessie.authUserId, (tx) => tx`
-    update grootboekrekening set nummer = ${nummer}, naam = ${naam}, actief = ${actief}, betaalmiddel = ${betaalmiddel}
+    update grootboekrekening set nummer = ${nummer}, naam = ${naam}, actief = ${actief}, betaalmiddel = ${betaalmiddel},
+      rubriek = coalesce(${rubriek}, rubriek)
     where id = ${id}
   `);
 }

@@ -15,7 +15,14 @@ factureert — met concept, nummering, btw en grootboekrekening per regel,
 factuur en urenspecificatie als PDF, crediteren, correcties met een
 tegenboeking, en een eigen boekhouding: journaal met sluitende boekingen,
 balans en winst-en-verlies, inkoop en kosten, btw-aangifte, grootboekkaarten,
-periode afsluiten.
+periode afsluiten. Daarbovenop het jaarwerk van een bv — vaste activa met
+afschrijving, vennootschapsbelasting, de jaarrekening als PDF met de velden
+voor de KvK — een loonadministratie met loonstroken, loonjournaalpost en de
+loonaangifte per rubriek, en een kalender van alle aangiften.
+
+Indienen bij Belastingdienst en KvK doe je zelf via hun portalen: de app zet de
+bedragen per rubriek klaar en houdt bij wat gedaan is. De loonparameters per
+jaar zijn vooraf ingevuld maar moeten tegen de officiële tabellen gelegd worden.
 
 | | |
 |---|---|
@@ -51,7 +58,7 @@ omgeving zet je `AUTH_MODUS=supabase` en vul je de Supabase-variabelen in.
 ## Testen
 
 ```sh
-npm run test:db     # migraties en tweeëntwintig schemacontroles
+npm run test:db     # migraties en vierentwintig schemacontroles
 npm run typecheck
 npm run build
 ```
@@ -61,11 +68,12 @@ onder meer de tariefzoekvolgorde en de afscherming, en ruimt daarna op.
 
 ## Volgende stap
 
-Het keuzeplan is tot en met fase 3 gebouwd, plus facturatie en een eigen
-boekhouding. Fase 4 is optioneel en op volgorde van wat het meest irriteert:
-bankafschriften inlezen (CAMT/MT940) en automatisch afletteren, bonnetjes
-fotograferen bij een inkoop (C5), afschrijvingen op vaste activa, offline
-invoeren, verlof en ziekte, bezettingsprognose.
+Het keuzeplan is tot en met fase 3 gebouwd, plus facturatie, boekhouding,
+jaarwerk en loon. Fase 4 is optioneel en op volgorde van wat het meest
+irriteert: bankafschriften inlezen (CAMT/MT940) en automatisch afletteren,
+elektronisch indienen via Digipoort/SBR (vereist een PKIoverheid-certificaat),
+bonnetjes fotograferen bij een inkoop (C5), offline invoeren, verlof en ziekte,
+bezettingsprognose.
 
 Nog te beantwoorden: of er in een auto van de zaak gereden wordt. Zie het slot
 van `docs/besluiten.md`.

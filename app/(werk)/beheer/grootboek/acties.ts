@@ -36,7 +36,7 @@ export async function grootboekOpslaan(formData: FormData) {
   const naam = tekst(formData, "naam");
   if (!id || !nummer || !naam) throw new Error("Nummer en naam mogen niet leeg zijn.");
   if (!/^[0-9A-Za-z.\-]{1,20}$/.test(nummer)) throw new Error("Gebruik voor het nummer alleen cijfers en letters, zoals 8000.");
-  await werkGrootboekBij(sessie, id, nummer, naam, formData.get("actief") === "aan", formData.get("betaalmiddel") === "aan");
+  await werkGrootboekBij(sessie, id, nummer, naam, formData.get("actief") === "aan", formData.get("betaalmiddel") === "aan", tekst(formData, "rubriek"));
   ververs();
 }
 
