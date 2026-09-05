@@ -7,7 +7,7 @@ import { isGeldigeDatum, leesMinuten, vandaag } from "@/lib/datum";
 import {
   maakConceptFactuur, maakLosseFactuur, regelToevoegen, regelBijwerken, regelVerwijderen,
   factuurKopBijwerken, maakDefinitief, verwijderConcept, zetBetaald, crediteer,
-  markeerVerwerkt, boekCorrectie, nieuweTermijn, verwijderTermijn,
+  markeerVerstuurd, boekCorrectie, nieuweTermijn, verwijderTermijn,
 } from "@/lib/facturatie";
 
 async function eigenaarSessie() {
@@ -118,8 +118,14 @@ export async function betaald(formData: FormData) {
   const sessie = await eigenaarSessie();
   const id = String(formData.get("factuurId") ?? "");
   const datum = String(formData.get("datum") ?? "");
-  await zetBetaald(sessie, id, formData.get("ongedaan") === "ja" ? null : (isGeldigeDatum(datum) ? datum : vandaag()));
-  ververs(id);
+  const via = tekst(formData, "via");
+  if (formData.get("ongedaan") === "ja") {
+    await zetBetaald(sessie, id, null);
+  } else {
+    if (!via) throw new Error("Kies waar het geld binnenkwam (bank, kas of privé), of verrekend.");
+    await zetBetaald(sessie, id, isGeldigeDatum(datum) ? datum : vandaag(), via === "verrekend" ? null : via);
+  }
+  ververs(id); revalidatePath("/boekhouding");
 }
 
 export async function crediteren(formData: FormData) {
@@ -132,10 +138,10 @@ export async function crediteren(formData: FormData) {
   redirect(`/facturen/${nieuw}`);
 }
 
-export async function verwerktInBoekhouding(formData: FormData) {
+export async function verstuurd(formData: FormData) {
   const sessie = await eigenaarSessie();
   const id = String(formData.get("factuurId") ?? "");
-  if (id) await markeerVerwerkt(sessie, id);
+  if (id) await markeerVerstuurd(sessie, id);
   ververs(id);
 }
 

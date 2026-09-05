@@ -125,19 +125,22 @@ body {
 
 /* Invoervelden. Genoeg tikruimte op een telefoon; 16px voorkomt dat iOS
    inzoomt bij focus. */
-.veld {
-  background: var(--surface);
-  border: 1px solid var(--line-2);
-  border-radius: 3px;
-  padding: 0.625rem 0.75rem;
-  font-size: 16px;
-  color: var(--ink);
-  width: 100%;
-  min-height: 44px;
-}
-.veld:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -1px;
+/* In de components-laag, zodat utilities als w-36 en min-h-9 erboven gaan. */
+@layer components {
+  .veld {
+    background: var(--surface);
+    border: 1px solid var(--line-2);
+    border-radius: 3px;
+    padding: 0.625rem 0.75rem;
+    font-size: 16px;
+    color: var(--ink);
+    width: 100%;
+    min-height: 44px;
+  }
+  .veld:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -1px;
+  }
 }
 
 .knop {

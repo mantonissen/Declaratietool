@@ -166,14 +166,14 @@ loopt van die datum tot vandaag en maakt per periode één termijn
 unieke index op project en periode. Met `automatisch_factureren` wordt van de
 termijn direct een definitieve factuur gemaakt, met een nummer uit de reeks in
 `instellingen` (`factuur_prefix`, `factuur_jaar`, `factuur_volgnummer`) en de
-goedgekeurde uren van vóór de periode als verantwoording. `verwerkt_op` op de
+goedgekeurde uren van vóór de periode als verantwoording. `verstuurd_op` op de
 factuur markeert dat de eigenaar hem heeft verstuurd en afgehandeld.
 
 ## Facturen en grootboek (besluit E2, gewijzigd naar c)
 
 Een factuur is een eigen tabel: `factuur` (klant, project, status, nummer,
 datum, vervaldatum, periode, subtotaal, btw, totaal, betaald op, `credit_van_id`,
-`automatisch`, `verwerkt_op`, `geexporteerd_op`) met `factuurregel`
+`automatisch`, `verstuurd_op`) met `factuurregel`
 (volgorde, omschrijving, aantal, eenheid, prijs, bedrag, `bron`: uren, ritten,
 termijn, handmatig of credit). De status loopt van `concept` via `definitief`
 naar `betaald` of `gecrediteerd`. Urenregels, ritten en termijnen wijzen met
@@ -196,13 +196,51 @@ vervaldatum, sloten), `verwijder_concept()` (geeft de regels weer vrij) en
 `crediteer_factuur()` (nieuwe definitieve factuur met omgekeerde regels).
 Facturen zijn zichtbaar vanaf projectleider; alleen de eigenaar schrijft.
 
-Twee views voor de buitenwereld: `v_factuur` per factuur (totalen, openstaand,
-vervallen, minuten en kilometers eraan) en `v_factuur_journaal` per regel met
-alles wat een boekhoudpakket wil weten — factuurnummer, datum, vervaldatum,
-klant, grootboeknummer, btw-code en -bedrag. Concepten staan er niet in.
-Tests 18, 19 en 21 dekken dit: bedragen en btw, sloten na definitief maken,
-grootboek per regel, creditering, journaalregels, en dat een medewerker geen
-factuur kan maken of zien.
+De view `v_factuur` geeft per factuur totalen, openstaand, vervallen, en de
+minuten en kilometers die eraan hangen. Tests 18, 19 en 21 dekken dit:
+bedragen en btw, sloten na definitief maken, grootboek per regel, creditering,
+de verkoopboeking, en dat een medewerker geen factuur kan maken of zien.
+
+## Boekhouding (besluit E2, gewijzigd naar d)
+
+`boeking` en `boekingsregel` vormen het journaal. Een boeking heeft een
+datum, een dagboek (`verkoop`, `inkoop`, `bank`, `memoriaal`, `btw`), een
+doorlopend `volgnummer` en hoogstens één bron: `factuur_id`, `inkoop_id` of
+`aangifte_id`. Een regel heeft een rekening en debet óf credit, nooit beide,
+nooit nul. Een uitgestelde constraint-trigger (`controleer_boeking`)
+controleert aan het eind van de transactie dat elke geraakte boeking regels
+heeft en sluit. Regels zijn na het schrijven onveranderlijk (trigger); een
+verkoopboeking is nooit te verwijderen, een btw-boeking niet na indienen.
+
+`grootboekrekening.soort` is `activa`, `passiva`, `eigen_vermogen`, `omzet`
+of `kosten`; `betaalmiddel` markeert bank, kas en privé. De vaste rekeningen
+staan in `instellingen` (`rekening_debiteuren`, `rekening_crediteuren`,
+`rekening_bank`, `rekening_btw_verschuldigd`, `rekening_btw_voorbelasting`,
+`rekening_btw_aangifte`), net als `btw_aangifte_interval` en
+`afgesloten_tot`. Tot en met die laatste datum weigert een trigger elke
+boeking, wijziging en verwijdering.
+
+`inkoopfactuur` is één regel per bon: leverancier, omschrijving, kenmerk,
+datum, vervaldatum, kostenrekening, bedrag exclusief, btw-code en -bedrag,
+`bedrag_incl` als berekende kolom, en `betaald_op` met `betaald_via`. De
+boeking verwijst ernaar met `on delete cascade`, dus een inkoop weghalen
+haalt haar boekingen mee — wat de afsluittrigger dan weer tegenhoudt in een
+gesloten periode. Wijzigen is terugdraaien en opnieuw boeken.
+
+`btw_aangifte` is een momentopname per periode (uitsluitingsbeperking op
+overlap): grondslag en btw per rubriek, voorbelasting, `saldo` als berekende
+kolom, `ingediend_op`, `betaald_op`. `btw_overzicht(van, tot)` rekent de
+rubrieken live uit; `maak_btw_aangifte` legt ze vast en boekt de
+verschuiving naar "btw-aangifte te betalen".
+
+Rapporten: `grootboek_saldi(van, tot)` geeft per rekening debet, credit en
+saldo over de periode; `v_boeking` de boekingen met bedrag en aantal regels.
+Test 22 rekent de keten door: debiteuren gelijk aan alles wat gefactureerd
+is, betaling en ongedaan maken, inkoop met voorbelasting en crediteuren,
+wijzigen, de aangifte en haar boeking, overlap geweigerd, memoriaal die niet
+sluit geweigerd, regels op slot, resultaat gelijk aan omzet min kosten,
+afsluiten dat boeken en verwijderen tegenhoudt, en een medewerker die niets
+ziet en niets boekt.
 
 ## Testen
 

@@ -80,15 +80,19 @@ account.
 | `/facturen/[id]` | Eén factuur: concept bewerken (regels, btw, grootboek), definitief maken, betaald, crediteren, correcties met tegenboeking (D3a) |
 | `/api/factuur` | De factuur als PDF, met de urenspecificatie als bijlage |
 | `/api/specificatie` | Urenspecificatie als PDF, per factuur of per project en periode (E3a) |
-| `/api/export/facturen` | Journaal voor de boekhouding: per factuurregel één rij met grootboek en btw (E2) |
+| `/boekhouding` | Winst-en-verlies over een periode, balans per einddatum, memoriaalboeking, periode afsluiten (E2d) |
+| `/boekhouding/journaal` | Alle boekingen met hun regels, filter op dagboek; CSV voor de accountant via `/api/export/journaal` |
+| `/boekhouding/rekening/[id]` | Grootboekkaart: mutaties op één rekening met lopend saldo |
+| `/boekhouding/inkoop` | Inkoopfacturen en kosten vastleggen, betalen, wijzigen |
+| `/boekhouding/btw` | Btw-aangifte per periode: rubrieken, vastleggen, ingediend, afgedragen |
 | `/beheer/instellingen` | Bedrijfsgegevens voor bovenaan factuur en specificatie |
-| `/beheer/grootboek` | Grootboekrekeningen, standaardrekening per soort regel, btw-tarieven, betaaltermijn, voettekst |
+| `/beheer/grootboek` | Rekeningschema, vaste rekeningen van de boekhouding, standaardrekening per soort regel, btw-tarieven, betaaltermijn, voettekst |
 | `/export` → `/api/export` | CSV van uren of ritten (E2a) |
 
 ## Factureren
 
-De app maakt de factuur zelf (keuze E2, gewijzigd naar c: factureren in de
-app, met een koppeling naar de boekhouding voorbereid). De eigenaar kiest een
+De app maakt de factuur zelf en boekt hem meteen in de eigen boekhouding
+(keuze E2, gewijzigd naar d: geen extern pakket). De eigenaar kiest een
 project, ziet wat er te factureren staat — goedgekeurde uren en ritten in een
 periode, open termijnen — en maakt daar een **concept** van. De functie
 `maak_factuur()` in de database bouwt de regels: uren gegroepeerd per onderdeel
@@ -118,13 +122,6 @@ oude factuur niet verandert. Welke rekening een regel krijgt bepaalt
 standaardrekening per soort regel uit `instellingen` (uren, reiskosten,
 termijnen vaste prijs, abonnementen, overig). De klant draagt de standaard
 btw-code; per regel kun je afwijken.
-
-Voor de boekhouding is er `v_factuur_journaal`: per factuurregel één rij met
-factuurnummer, datum, vervaldatum, klant, grootboeknummer, btw-code en
--bedrag. `/api/export/facturen` levert die als CSV over een periode, desgewenst
-alleen wat nog niet geëxporteerd is, en zet dan `geexporteerd_op` op de
-factuur. Een directe koppeling met een pakket (E2b) stuurt straks dezelfde
-kolommen door; de export blijft ernaast bestaan als controle en als uitweg.
 
 Drie modellen per project (keuze B5b):
 
@@ -170,7 +167,55 @@ huidige periode en verschijnen in het volgende factuurvoorstel van die klant.
   '15 5 * * *', $$select verwerk_periodieke_facturen()$$)`.
 
   Automatische facturen staan bovenaan het factuurscherm tot de eigenaar ze
-  heeft verstuurd en afvinkt (`factuur.verwerkt_op`).
+  heeft verstuurd en afvinkt (`factuur.verstuurd_op`).
+
+## De boekhouding
+
+Geen extern pakket: de boekhouding zit in dezelfde database, met dezelfde
+regel als de rest — alles wat geld verplaatst gaat door een functie, en de
+functies draaien als aanroeper, dus alleen de eigenaar komt erbij.
+
+Het hart is het **journaal**: tabel `boeking` (datum, dagboek, omschrijving,
+doorlopend volgnummer, verwijzing naar factuur, inkoop of aangifte) met
+`boekingsregel` (rekening, debet óf credit). Een uitgestelde
+constraint-trigger eist aan het eind van elke transactie dat een boeking
+regels heeft en sluit; regels zijn daarna onveranderlijk, en een boeking
+verdwijnt alleen via haar bron. Wat er automatisch geboekt wordt:
+
+| Gebeurtenis | Boeking |
+|---|---|
+| Factuur definitief (`maak_definitief` → `boek_verkoop`) | debiteuren / omzet per grootboekrekening, af te dragen btw |
+| Creditfactuur | dezelfde regels met omgekeerd teken |
+| Factuur betaald (`boek_betaling_factuur`) | bank, kas of privé / debiteuren; "verrekend" verschuift niets |
+| Inkoop (`maak_inkoopfactuur` → `boek_inkoop`) | kostenrekening en voorbelasting / crediteuren |
+| Inkoop betaald (`boek_betaling_inkoop`) | crediteuren / betaalmiddel |
+| Btw-aangifte vastgelegd (`maak_btw_aangifte`) | af te dragen btw / voorbelasting en "btw-aangifte te betalen" |
+| Aangifte afgedragen (`boek_betaling_btw`) | btw-aangifte te betalen / bank |
+| Memoriaal (`boek_memoriaal`) | wat je zelf opgeeft, mits het sluit |
+
+Het **rekeningschema** (`grootboekrekening`) heeft vijf soorten: activa,
+passiva, eigen vermogen, omzet, kosten. Saldo is overal debet min credit;
+activa en kosten worden als debetsaldo getoond, de rest als creditsaldo. De
+vaste rekeningen (debiteuren, crediteuren, bank, btw) staan in `instellingen`
+en zijn te wijzigen als het schema anders wordt ingericht; `betaalmiddel`
+markeert waar een betaling vandaan komt (bank, kas, privé).
+
+**Rapporten** komen uit `grootboek_saldi(van, tot)`: winst-en-verlies is de
+som van omzet en kosten over de periode, de balans zijn de balansrekeningen
+vanaf het begin tot de einddatum plus het cumulatieve resultaat als
+sluitpost. De grootboekkaart leest de regels van één rekening met een lopend
+saldo. `btw_overzicht(van, tot)` telt de rubrieken van de aangifte uit de
+factuurregels (op factuurdatum) en de inkoop.
+
+**Afsluiten**: `instellingen.afgesloten_tot` blokkeert via een trigger elke
+boeking, wijziging of verwijdering met een datum tot en met die dag, en
+`maak_definitief` weigert een factuurdatum erin. Heropenen kan, zolang
+niemand de sleutel weggooit; de accountant zal vragen dat je het niet doet.
+
+Wat er bewust niet in zit: bankafschriften inlezen en afletteren (betalingen
+boek je op de factuur of inkoop), afschrijvingen (memoriaal), meerdere
+btw-tarieven op één inkoop (splits de bon), en de jaarrekening zelf — daar
+is de CSV van het journaal voor.
 
 ## Factuur en specificatie als PDF
 

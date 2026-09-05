@@ -5,7 +5,7 @@ import { specificatie, grootboekrekeningen, btwTarieven } from "@/lib/facturatie
 import { euro, getal, korteDatum, minutenAlsTijd, vandaag } from "@/lib/datum";
 import {
   regelErbij, regelOpslaan, regelWeg, kopOpslaan, definitiefMaken, conceptWeg,
-  betaald, crediteren, verwerktInBoekhouding, corrigeer,
+  betaald, crediteren, verstuurd, corrigeer,
 } from "../acties";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +21,11 @@ export default async function FactuurPagina({ params }: { params: Promise<{ id: 
   if (!s.factuur || !s.klant) notFound();
   const f = s.factuur;
   const concept = f.status === "concept";
-  const [gb, btw] = concept ? await Promise.all([grootboekrekeningen(sessie), btwTarieven(sessie)]) : [[], []];
+  const [gb, btw] = await Promise.all([grootboekrekeningen(sessie), concept ? btwTarieven(sessie) : []]);
+  // Bank vooraan: dat is bijna altijd het antwoord.
+  const betaalmiddelen = gb.filter((g) => g.actief && g.betaalmiddel)
+    .sort((a, b) => Number(b.soort === "activa") - Number(a.soort === "activa") || b.nummer.localeCompare(a.nummer));
+  const bankId = betaalmiddelen.find((g) => g.nummer === "1100")?.id ?? betaalmiddelen[0]?.id ?? "";
   const vast = !!s.project && s.project.facturatiemodel !== "nacalculatie";
 
   const Th = ({ children, r, w }: { children?: React.ReactNode; r?: boolean; w?: string }) => (
@@ -78,13 +82,24 @@ export default async function FactuurPagina({ params }: { params: Promise<{ id: 
         <a href={`/api/factuur?id=${f.id}&bijlage=nee`} className="knop knop-kaal">zonder bijlage</a>
         <a href={`/api/specificatie?factuur=${f.id}&detail=vol`} className="knop knop-kaal">specificatie intern</a>
         {f.status === "definitief" && (
-          <form action={betaald} className="ml-auto flex items-center gap-2"><input type="hidden" name="factuurId" value={f.id} /><input type="date" name="datum" defaultValue={vandaag()} className="veld min-h-10 w-40 py-1" aria-label="Betaald op" /><button type="submit" className="knop knop-stil">{f.creditVanId ? "Verrekend" : "Betaald"}</button></form>
+          <form action={betaald} className="ml-auto flex flex-wrap items-center gap-2">
+            <input type="hidden" name="factuurId" value={f.id} />
+            <input type="date" name="datum" defaultValue={vandaag()} className="veld min-h-10 w-40 py-1" aria-label="Betaald op" />
+            <select name="via" defaultValue={f.creditVanId ? "verrekend" : bankId} className="veld min-h-10 py-1" aria-label="Via">
+              {f.creditVanId && <option value="verrekend">verrekend met een factuur</option>}
+              {betaalmiddelen.map((g) => <option key={g.id} value={g.id}>{f.creditVanId ? "terugbetaald via " : "ontvangen op "}{g.naam.toLowerCase()}</option>)}
+            </select>
+            <button type="submit" className="knop knop-stil">{f.creditVanId ? "Afgehandeld" : "Betaald"}</button>
+          </form>
         )}
         {f.status === "betaald" && (
           <form action={betaald} className="ml-auto"><input type="hidden" name="factuurId" value={f.id} /><input type="hidden" name="ongedaan" value="ja" /><button type="submit" className="knop knop-kaal">Toch niet betaald</button></form>
         )}
-        {f.automatisch && !f.verwerktOp && f.status !== "concept" && (
-          <form action={verwerktInBoekhouding}><input type="hidden" name="factuurId" value={f.id} /><button type="submit" className="knop knop-stil">Verwerkt in boekhouding</button></form>
+        {f.automatisch && !f.verstuurdOp && f.status !== "concept" && (
+          <form action={verstuurd}><input type="hidden" name="factuurId" value={f.id} /><button type="submit" className="knop knop-stil">Verstuurd</button></form>
+        )}
+        {f.status !== "concept" && (
+          <Link href={`/boekhouding/journaal?van=${f.datum}&tot=${vandaag()}&soort=verkoop`} className="knop knop-kaal">in het journaal</Link>
         )}
       </div>
 

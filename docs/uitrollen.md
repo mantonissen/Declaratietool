@@ -11,7 +11,7 @@ half uur, het meeste daarvan is klikken door instellingen.
    **Frankfurt (eu-central-1)** of een andere EU-regio (keuze A3).
 2. Ga naar *SQL Editor* en voer de migraties uit, in volgorde:
    `supabase/migrations/20260904120000_basis.sql` tot en met
-   `…20260905090000_facturen.sql`. Daarna `supabase/seed.sql`.
+   `…20260905120000_boekhouding.sql`. Daarna `supabase/seed.sql`.
 
    Heb je de Supabase CLI: `supabase link` en `supabase db push` doen
    hetzelfde.
@@ -70,10 +70,16 @@ Zodra een collega inlogt met dat adres, is het account gekoppeld.
 Tarieven en de kilometervergoeding staan onder *Beheer → Tarieven*.
 
 Vóór de eerste factuur: vul onder *Beheer → Bedrijfsgegevens* naam, adres,
-KvK, btw-nummer en IBAN in (die komen op de factuur) en neem onder *Beheer →
-Grootboek en btw* de grootboeknummers over zoals je boekhoudpakket ze kent; de
-voorbeeldnummers 8000–8090 mag je hernoemen. Zet daar ook de betaaltermijn en
-de voettekst.
+KvK, btw-nummer en IBAN in (die komen op de factuur) en loop onder *Beheer →
+Grootboek en btw* het rekeningschema na: het standaardschema (0–1 balans,
+4 kosten, 8 omzet) mag je hernoemen of aanvullen, en het btw-aangifteritme
+moet kloppen met wat de Belastingdienst je heeft opgelegd. Zet daar ook de
+betaaltermijn en de voettekst.
+
+Begin je halverwege een jaar met deze boekhouding? Boek dan onder
+*Boekhouding* eerst de beginbalans als memoriaal: het banksaldo debet op
+Bank, hetzelfde bedrag credit op Eigen vermogen; openstaande facturen en
+inkopen van vóór die datum voer je gewoon in, ze boeken zichzelf.
 
 ## 5. Controleren
 

@@ -4,7 +4,7 @@ import { vereisteSessie } from "@/lib/auth";
 import { alsGebruiker } from "@/lib/db";
 import { teFactureren, facturen, specificatie, verwerkPeriodiek, volgendNummerSuggestie } from "@/lib/facturatie";
 import { euro, getal, isGeldigeDatum, korteDatum, minutenAlsTijd, vandaag } from "@/lib/datum";
-import { conceptVanVoorstel, losseFactuur, termijnToevoegen, verwerktInBoekhouding } from "./acties";
+import { conceptVanVoorstel, losseFactuur, termijnToevoegen, verstuurd } from "./acties";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +30,7 @@ export default async function FacturenPagina({
   ]);
 
   const concepten = lijst.filter((f) => f.status === "concept");
-  const teVerwerken = lijst.filter((f) => f.automatisch && !f.verwerktOp && f.status !== "concept");
+  const teVersturen = lijst.filter((f) => f.automatisch && !f.verstuurdOp && f.status !== "concept");
   const openstaand = lijst.filter((f) => f.status === "definitief");
   const openBedrag = openstaand.reduce((s, f) => s + f.totaal, 0);
   const vervallen = openstaand.filter((f) => f.vervallen);
@@ -52,7 +52,8 @@ export default async function FacturenPagina({
       <p className="mt-1 mb-5 max-w-2xl text-sm text-muted">
         Van goedgekeurde uren, termijnen of een abonnement naar een factuur met btw en
         grootboekrekening per regel. Een concept kun je nog bewerken; definitief krijgt het
-        een nummer uit de reeks (volgende: <span className="cijfers">{suggestie}</span>) en ligt vast.
+        een nummer uit de reeks (volgende: <span className="cijfers">{suggestie}</span>), ligt vast
+        en staat meteen in de <Link href="/boekhouding" className="text-accent-ink">boekhouding</Link>.
       </p>
 
       <dl className="mb-6 grid grid-cols-2 gap-px overflow-hidden rounded border border-line bg-line sm:grid-cols-4">
@@ -60,7 +61,7 @@ export default async function FacturenPagina({
           { t: "Openstaand", v: euro(openBedrag), s: `${openstaand.length} ${openstaand.length === 1 ? "factuur" : "facturen"}` },
           { t: "Vervallen", v: vervallen.length ? euro(vervallen.reduce((s, f) => s + f.totaal, 0)) : "—", s: vervallen.length ? `${vervallen.length} over de vervaldatum` : "niets", w: vervallen.length > 0 },
           { t: "Concepten", v: String(concepten.length), s: "nog te versturen" },
-          { t: "Te verwerken", v: String(teVerwerken.length), s: "automatisch, nog niet in de boekhouding", w: teVerwerken.length > 0 },
+          { t: "Te versturen", v: String(teVersturen.length), s: "automatisch aangemaakt", w: teVersturen.length > 0 },
         ].map((x) => (
           <div key={x.t} className="bg-surface px-4 py-3">
             <dt className="label">{x.t}</dt>
@@ -95,20 +96,20 @@ export default async function FacturenPagina({
         </section>
       )}
 
-      {teVerwerken.length > 0 && (
+      {teVersturen.length > 0 && (
         <section className="mb-8">
-          <h2 className="mb-1 text-lg font-semibold">Automatisch aangemaakt <span className="cijfers ml-2 rounded bg-warn-bg px-1.5 py-0.5 text-xs text-warn">{teVerwerken.length} nog te verwerken</span></h2>
-          <p className="mb-3 text-sm text-muted">Abonnementsfacturen met een nummer uit de reeks. Verstuur ze, neem ze over in je boekhouding en vink ze dan af.</p>
+          <h2 className="mb-1 text-lg font-semibold">Automatisch aangemaakt <span className="cijfers ml-2 rounded bg-warn-bg px-1.5 py-0.5 text-xs text-warn">{teVersturen.length} nog te versturen</span></h2>
+          <p className="mb-3 text-sm text-muted">Abonnementsfacturen met een nummer uit de reeks; ze staan al in de boekhouding. Verstuur ze naar de klant en vink ze af.</p>
           <div className="tabel-omhulsel">
             <table className="w-full text-sm"><tbody>
-              {teVerwerken.map((f) => (
+              {teVersturen.map((f) => (
                 <tr key={f.id} className="border-b border-line last:border-0">
                   <td className="px-4 py-2"><Link href={`/facturen/${f.id}`} className="cijfers font-medium text-accent-ink hover:underline">{f.nummer}</Link></td>
                   <td className="px-4 py-2"><span className="block">{f.project}</span><span className="block text-xs text-muted">{f.klant} · {korteDatum(f.datum!)}</span></td>
                   <td className="cijfers px-4 py-2 text-right font-semibold whitespace-nowrap">{euro(f.totaal)}</td>
                   <td className="px-4 py-2 text-right whitespace-nowrap">
                     <a href={`/api/factuur?id=${f.id}`} className="knop knop-kaal knop-klein">PDF</a>
-                    <form action={verwerktInBoekhouding} className="inline"><input type="hidden" name="factuurId" value={f.id} /><button type="submit" className="knop knop-stil knop-klein ml-2">Verwerkt</button></form>
+                    <form action={verstuurd} className="inline"><input type="hidden" name="factuurId" value={f.id} /><button type="submit" className="knop knop-stil knop-klein ml-2">Verstuurd</button></form>
                   </td>
                 </tr>
               ))}
@@ -234,17 +235,14 @@ export default async function FacturenPagina({
             <button type="submit" className="knop knop-stil">Maak</button>
           </div>
         </form>
-        <form action="/api/export/facturen" method="get" className="kaart flex flex-col gap-3 p-4">
-          <h2 className="text-base font-semibold">Journaal voor de boekhouding</h2>
-          <p className="text-xs text-muted">Per factuurregel één rij met grootboek en btw, als CSV. Later gaat dit rechtstreeks naar je pakket.</p>
-          <div className="flex flex-wrap items-end gap-2">
-            <input type="date" name="van" defaultValue={maand} required className="veld min-h-10 py-1" aria-label="Van" />
-            <input type="date" name="tot" defaultValue={vandaag()} required className="veld min-h-10 py-1" aria-label="Tot en met" />
-            <label className="flex items-center gap-2 text-xs"><input type="checkbox" name="alleen_nieuw" value="ja" defaultChecked className="size-4 accent-[var(--accent)]" />alleen nieuwe</label>
-            <label className="flex items-center gap-2 text-xs"><input type="checkbox" name="markeer" value="ja" defaultChecked className="size-4 accent-[var(--accent)]" />markeer als geëxporteerd</label>
-            <button type="submit" className="knop knop-stil">Download</button>
+        <div className="kaart flex flex-col gap-3 p-4">
+          <h2 className="text-base font-semibold">In de boekhouding</h2>
+          <p className="text-xs text-muted">Elke definitieve factuur staat als verkoopboeking in het journaal: debiteuren tegenover omzet per grootboekrekening en af te dragen btw. Betaald melden boekt de ontvangst op de bank.</p>
+          <div className="flex flex-wrap gap-2">
+            <Link href={`/boekhouding/journaal?van=${maand}&tot=${vandaag()}&soort=verkoop`} className="knop knop-stil">Verkoopboek</Link>
+            <Link href="/boekhouding/btw" className="knop knop-kaal">Btw-aangifte</Link>
           </div>
-        </form>
+        </div>
       </div>
 
       <h2 className="mb-2 text-lg font-semibold">Alle facturen</h2>
@@ -268,7 +266,6 @@ export default async function FacturenPagina({
                     <span className={`label rounded px-1.5 py-0.5 ${f.status === "betaald" ? "bg-accent-bg text-accent-ink" : f.vervallen ? "bg-warn-bg text-warn" : "bg-surface-2"}`}>
                       {f.vervallen ? "Vervallen" : STATUS_LABEL[f.status]}
                     </span>
-                    {f.geexporteerdOp && <span className="label ml-1 text-muted">· geëxporteerd</span>}
                   </td>
                   <td className="cijfers px-4 py-2 text-right font-semibold">{euro(f.totaal)}</td>
                 </tr>

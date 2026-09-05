@@ -13,7 +13,9 @@ factureren per project — nacalculatie, vaste prijs in termijnen bij
 tussenopleveringen, of abonnement per maand, kwartaal of jaar dat zichzelf
 factureert — met concept, nummering, btw en grootboekrekening per regel,
 factuur en urenspecificatie als PDF, crediteren, correcties met een
-tegenboeking, en een journaalexport voor de boekhouding.
+tegenboeking, en een eigen boekhouding: journaal met sluitende boekingen,
+balans en winst-en-verlies, inkoop en kosten, btw-aangifte, grootboekkaarten,
+periode afsluiten.
 
 | | |
 |---|---|
@@ -49,7 +51,7 @@ omgeving zet je `AUTH_MODUS=supabase` en vul je de Supabase-variabelen in.
 ## Testen
 
 ```sh
-npm run test:db     # migraties en eenentwintig schemacontroles
+npm run test:db     # migraties en tweeëntwintig schemacontroles
 npm run typecheck
 npm run build
 ```
@@ -59,12 +61,11 @@ onder meer de tariefzoekvolgorde en de afscherming, en ruimt daarna op.
 
 ## Volgende stap
 
-Het keuzeplan is tot en met fase 3 gebouwd, plus facturatie met grootboek. Fase
-4 is optioneel en op volgorde van wat het meest irriteert: de directe koppeling
-met het boekhoudpakket (E2b; het journaal in `/api/export/facturen` is daar de
-voorbereiding op), bonnetjes fotograferen (C5), offline invoeren, verlof en
-ziekte, bezettingsprognose.
+Het keuzeplan is tot en met fase 3 gebouwd, plus facturatie en een eigen
+boekhouding. Fase 4 is optioneel en op volgorde van wat het meest irriteert:
+bankafschriften inlezen (CAMT/MT940) en automatisch afletteren, bonnetjes
+fotograferen bij een inkoop (C5), afschrijvingen op vaste activa, offline
+invoeren, verlof en ziekte, bezettingsprognose.
 
-Nog te beantwoorden: welk boekhoudpakket in gebruik is (bepaalt de koppeling en
-de grootboeknummers), en of er in een auto van de zaak gereden wordt. Zie het
-slot van `docs/besluiten.md`.
+Nog te beantwoorden: of er in een auto van de zaak gereden wordt. Zie het slot
+van `docs/besluiten.md`.

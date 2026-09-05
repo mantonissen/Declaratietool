@@ -693,9 +693,17 @@ begin
   exception when restrict_violation then null;
   end;
 
-  -- Journaal: drie regels met grootboek en btw.
-  select count(*) into n from v_factuur_journaal where nummer = nr and grootboek_nummer is not null;
-  if n <> 3 then raise exception 'Journaal hoort drie regels met grootboek te hebben, %', n; end if;
+  -- Verkoopboeking: debiteuren tegenover omzet per rekening en btw, en sluitend.
+  select count(*) into n from boekingsregel br join boeking b on b.id = br.boeking_id
+   where b.factuur_id = f_id and b.soort = 'verkoop';
+  if n <> 5 then raise exception 'Verkoopboeking hoort 5 regels te hebben (debiteuren, 8000, 8010, 8090, btw), kreeg %', n; end if;
+  select sum(br.debet) - sum(br.credit) as verschil into r from boekingsregel br join boeking b on b.id = br.boeking_id
+   where b.factuur_id = f_id;
+  if r.verschil <> 0 then raise exception 'Verkoopboeking sluit niet'; end if;
+  select sum(br.debet) as debiteuren into r from boekingsregel br join boeking b on b.id = br.boeking_id
+   join grootboekrekening g on g.id = br.grootboek_id
+   where b.factuur_id = f_id and g.nummer = '1300';
+  if r.debiteuren <> 1116.83 then raise exception 'Debiteuren hoort 1116,83 te zijn, kreeg %', r.debiteuren; end if;
 
   -- Crediteren: omgekeerde regels, meteen definitief, origineel gecrediteerd.
   c_id := crediteer_factuur(f_id, 'Verkeerde klant');
@@ -727,7 +735,172 @@ begin
   if n <> 0 then raise exception 'Medewerker zag % facturen', n; end if;
   reset role;
 
-  raise notice 'OK 21. facturen: concept met grootboek en btw, definitief met nummer en slot, credit, journaal';
+  raise notice 'OK 21. facturen: concept met grootboek en btw, definitief met nummer en slot, credit, verkoopboeking';
+end
+$$;
+
+-- ------------------------------------------------- 22. boekhouding ---------
+
+do $$
+declare
+  bank   uuid;
+  prive  uuid;
+  k_id   uuid;
+  a_id   uuid;
+  f_id   uuid;
+  b_id   uuid;
+  s      numeric;
+  s2     numeric;
+  r      record;
+  n      int;
+begin
+  set local role authenticated;
+  perform set_config('request.jwt.claim.sub',
+                     '11111111-1111-1111-1111-111111111111', true);
+  select id into bank  from grootboekrekening where nummer = '1100';
+  select id into prive from grootboekrekening where nummer = '0600';
+
+  -- Debiteuren = alles wat gefactureerd is (nog niets betaald).
+  select saldo into s from grootboek_saldi('1900-01-01', '2100-01-01') where nummer = '1300';
+  select sum(totaal) into s2 from factuur where status <> 'concept';
+  if s <> s2 then raise exception 'Debiteuren hoort % te zijn, kreeg %', s2, s; end if;
+
+  -- Omzet op de rekeningen is het subtotaal van alle facturen (credit, dus negatief).
+  select sum(saldo) into s from grootboek_saldi('1900-01-01', '2100-01-01') where soort = 'omzet';
+  select sum(subtotaal) into s2 from factuur where status <> 'concept';
+  if s <> -s2 then raise exception 'Omzet hoort -% te zijn, kreeg %', s2, s; end if;
+
+  -- Betaling van een abonnementsfactuur via bank; ongedaan maken herstelt.
+  select id into f_id from factuur where status = 'definitief' and totaal > 0 order by nummer limit 1;
+  perform boek_betaling_factuur(f_id, '2026-07-05', bank);
+  select * into r from factuur where id = f_id;
+  if r.status <> 'betaald' or r.betaald_op <> date '2026-07-05' then raise exception 'Factuur hoort betaald te zijn'; end if;
+  select saldo into s from grootboek_saldi('1900-01-01', '2100-01-01') where nummer = '1100';
+  if s <> r.totaal then raise exception 'Bank hoort % te zijn na de ontvangst, kreeg %', r.totaal, s; end if;
+  perform maak_betaling_factuur_ongedaan(f_id);
+  select saldo into s from grootboek_saldi('1900-01-01', '2100-01-01') where nummer = '1100';
+  if s <> 0 or (select status from factuur where id = f_id) <> 'definitief' then
+    raise exception 'Ongedaan maken hoort bank en status te herstellen';
+  end if;
+  perform boek_betaling_factuur(f_id, '2026-07-05', bank);
+
+  -- Inkoop: kosten en voorbelasting tegenover crediteuren; daarna betaald.
+  k_id := maak_inkoopfactuur('KPN', 'Internet juli', 'F-889', '2026-07-03', '2026-07-31',
+                             (select id from grootboekrekening where nummer = '4300'), 100, 'hoog', 21);
+  select saldo into s from grootboek_saldi('1900-01-01', '2100-01-01') where nummer = '1600';
+  if s <> -121 then raise exception 'Crediteuren hoort -121 te zijn, kreeg %', s; end if;
+  select saldo into s from grootboek_saldi('1900-01-01', '2100-01-01') where nummer = '1520';
+  if s <> 21 then raise exception 'Voorbelasting hoort 21 te zijn, kreeg %', s; end if;
+  perform boek_betaling_inkoop(k_id, '2026-07-20', bank);
+  select saldo into s from grootboek_saldi('1900-01-01', '2100-01-01') where nummer = '1600';
+  if s <> 0 then raise exception 'Crediteuren hoort 0 te zijn na betaling, kreeg %', s; end if;
+  select saldo into s from grootboek_saldi('1900-01-01', '2100-01-01') where nummer = '1100';
+  if s <> r.totaal - 121 then raise exception 'Bank hoort % te zijn, kreeg %', r.totaal - 121, s; end if;
+
+  -- Wijzigen boekt opnieuw, inclusief de betaling.
+  perform werk_inkoopfactuur_bij(k_id, 'KPN', 'Internet en telefonie juli', 'F-889', '2026-07-03', '2026-07-31',
+                                 (select id from grootboekrekening where nummer = '4300'), 150, 'hoog', 31.50);
+  select saldo into s from grootboek_saldi('1900-01-01', '2100-01-01') where nummer = '4300';
+  if s <> 150 then raise exception 'Kosten 4300 horen 150 te zijn na wijziging, kreeg %', s; end if;
+  select saldo into s from grootboek_saldi('1900-01-01', '2100-01-01') where nummer = '1100';
+  if s <> r.totaal - 181.50 then raise exception 'Bank hoort de nieuwe betaling te dragen, kreeg %', s; end if;
+
+  -- Btw-aangifte over het derde kwartaal: voorbelasting 31,50, saldo klopt met de boeking.
+  select btw into s from btw_overzicht('2026-07-01', '2026-09-30') where rubriek = '5b';
+  if s <> 31.50 then raise exception 'Voorbelasting Q3 hoort 31,50 te zijn, kreeg %', s; end if;
+  a_id := maak_btw_aangifte('2026-07-01', '2026-09-30');
+  select * into r from btw_aangifte where id = a_id;
+  if r.voorbelasting <> 31.50 or r.saldo <> r.btw_hoog + r.btw_laag - 31.50 then
+    raise exception 'Aangifte klopt niet: % / %', r.voorbelasting, r.saldo;
+  end if;
+  select btw into s from btw_overzicht('2026-07-01', '2026-09-30') where rubriek = '1a';
+  if s <> r.btw_hoog then raise exception 'Btw hoog in de aangifte hoort % te zijn', s; end if;
+  select saldo into s from grootboek_saldi('1900-01-01', '2100-01-01') where nummer = '1750';
+  if s <> -r.saldo then raise exception 'Btw-aangifte te betalen hoort -% te zijn, kreeg %', r.saldo, s; end if;
+  begin
+    perform maak_btw_aangifte('2026-09-01', '2026-11-30');
+    raise exception 'Overlappende aangifte had geweigerd moeten worden';
+  exception when exclusion_violation then null;
+  end;
+  perform verwijder_btw_aangifte(a_id);
+  select count(*) into n from boeking where soort = 'btw';
+  if n <> 0 then raise exception 'Btw-boeking hoort mee te verdwijnen'; end if;
+  a_id := maak_btw_aangifte('2026-07-01', '2026-09-30');
+  perform boek_betaling_btw(a_id, '2026-10-20', bank);
+  select saldo into s from grootboek_saldi('1900-01-01', '2100-01-01') where nummer = '1750';
+  if s <> 0 then raise exception 'Na afdracht hoort 1750 op nul te staan, kreeg %', s; end if;
+  begin
+    perform verwijder_btw_aangifte(a_id);
+    raise exception 'Ingediende aangifte had niet verwijderd mogen worden';
+  exception when restrict_violation then null;
+  end;
+
+  -- Memoriaal: sluit niet → geweigerd; sluit wel → geboekt.
+  begin
+    perform boek_memoriaal('2026-08-01', 'Scheef', jsonb_build_array(
+      jsonb_build_object('grootboek_id', prive, 'debet', 500),
+      jsonb_build_object('grootboek_id', bank, 'credit', 400)));
+    raise exception 'Scheve boeking had geweigerd moeten worden';
+  exception when check_violation then null;
+  end;
+  b_id := boek_memoriaal('2026-08-01', 'Privé-opname', jsonb_build_array(
+    jsonb_build_object('grootboek_id', prive, 'debet', 500),
+    jsonb_build_object('grootboek_id', bank, 'credit', 500)));
+  select saldo into s from grootboek_saldi('2026-08-01', '2026-08-31') where nummer = '0600';
+  if s <> 500 then raise exception 'Privé hoort 500 te zijn in augustus, kreeg %', s; end if;
+
+  -- Regels liggen vast; een verkoopboeking verdwijnt niet.
+  begin
+    update boekingsregel set debet = 1 where boeking_id = b_id and debet > 0;
+    raise exception 'Boekingsregel had op slot moeten zitten';
+  exception when restrict_violation then null;
+  end;
+  begin
+    delete from boeking where soort = 'verkoop' and factuur_id = f_id;
+    raise exception 'Verkoopboeking had niet verwijderd mogen worden';
+  exception when restrict_violation then null;
+  end;
+
+  -- Winst-en-verlies over het jaar: omzet min kosten.
+  select -sum(saldo) filter (where soort = 'omzet') - sum(saldo) filter (where soort = 'kosten') into s
+  from grootboek_saldi('2026-01-01', '2026-12-31');
+  select sum(subtotaal) into s2 from factuur where status <> 'concept' and datum between '2026-01-01' and '2026-12-31';
+  if s <> s2 - 150 then raise exception 'Resultaat hoort omzet % min kosten 150 te zijn, kreeg %', s2, s; end if;
+
+  -- Afsluiten: niets meer in een gesloten periode.
+  update instellingen set afgesloten_tot = '2026-07-31' where id;
+  begin
+    perform boek_memoriaal('2026-07-15', 'Te laat', jsonb_build_array(
+      jsonb_build_object('grootboek_id', prive, 'debet', 1),
+      jsonb_build_object('grootboek_id', bank, 'credit', 1)));
+    raise exception 'Boeken in een afgesloten periode had geweigerd moeten worden';
+  exception when restrict_violation then null;
+  end;
+  begin
+    delete from inkoopfactuur where id = k_id;
+    raise exception 'Verwijderen uit een afgesloten periode had geweigerd moeten worden';
+  exception when restrict_violation then null;
+  end;
+  update instellingen set afgesloten_tot = null where id;
+  delete from boeking where id = b_id;
+  reset role;
+
+  -- Een medewerker ziet en boekt niets.
+  set local role authenticated;
+  perform set_config('request.jwt.claim.sub',
+                     '22222222-2222-2222-2222-222222222222', true);
+  select count(*) into n from boeking;
+  if n <> 0 then raise exception 'Medewerker zag % boekingen', n; end if;
+  begin
+    perform boek_memoriaal('2026-08-02', 'Stiekem', jsonb_build_array(
+      jsonb_build_object('grootboek_id', prive, 'debet', 1),
+      jsonb_build_object('grootboek_id', bank, 'credit', 1)));
+    raise exception 'Medewerker mocht boeken';
+  exception when insufficient_privilege or check_violation or raise_exception then null;
+  end;
+  reset role;
+
+  raise notice 'OK 22. boekhouding: verkoop, betaling, inkoop, btw-aangifte, memoriaal, sloten, afsluiten';
 end
 $$;
 

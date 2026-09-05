@@ -54,8 +54,7 @@ export type FactuurKop = {
   vervaldatum: Datum | null; periodeVan: Datum | null; periodeTot: Datum | null;
   referentieKlant: string | null; opmerking: string | null;
   subtotaal: number; btwBedrag: number; totaal: number; betaaldOp: Datum | null;
-  creditVanId: string | null; automatisch: boolean; verwerktOp: string | null;
-  geexporteerdOp: string | null;
+  creditVanId: string | null; automatisch: boolean; verstuurdOp: string | null;
 };
 
 export type Selectie =
@@ -221,8 +220,7 @@ const naarFactuurKop = (f: Record<string, unknown>): FactuurKop => ({
   referentieKlant: (f.referentie_klant as string) ?? null, opmerking: (f.opmerking as string) ?? null,
   subtotaal: Number(f.subtotaal), btwBedrag: Number(f.btw_bedrag), totaal: Number(f.totaal),
   betaaldOp: (f.betaald_op as Datum) ?? null, creditVanId: (f.credit_van_id as string) ?? null,
-  automatisch: Boolean(f.automatisch), verwerktOp: f.verwerkt_op ? String(f.verwerkt_op) : null,
-  geexporteerdOp: f.geexporteerd_op ? String(f.geexporteerd_op) : null,
+  automatisch: Boolean(f.automatisch), verstuurdOp: f.verstuurd_op ? String(f.verstuurd_op) : null,
 });
 
 // ------------------------------------------------------------- lijsten ---
@@ -233,7 +231,7 @@ export type Factuur = {
   datum: Datum | null; vervaldatum: Datum | null; periodeVan: Datum | null; periodeTot: Datum | null;
   subtotaal: number; btwBedrag: number; totaal: number; openstaand: number; vervallen: boolean;
   betaaldOp: Datum | null; creditVanId: string | null; automatisch: boolean;
-  verwerktOp: string | null; geexporteerdOp: string | null; minuten: number; km: number; regels: number;
+  verstuurdOp: string | null; minuten: number; km: number; regels: number;
 };
 
 export async function facturen(sessie: Sessie): Promise<Factuur[]> {
@@ -254,8 +252,7 @@ export async function facturen(sessie: Sessie): Promise<Factuur[]> {
     subtotaal: Number(r.subtotaal_f), btwBedrag: Number(r.btw_f), totaal: Number(r.totaal_f),
     openstaand: Number(r.open_f), vervallen: Boolean(r.vervallen),
     betaaldOp: (r.betaald_op as Datum) ?? null, creditVanId: (r.credit_van_id as string) ?? null,
-    automatisch: Boolean(r.automatisch), verwerktOp: r.verwerkt_op ? String(r.verwerkt_op) : null,
-    geexporteerdOp: r.geexporteerd_op ? String(r.geexporteerd_op) : null,
+    automatisch: Boolean(r.automatisch), verstuurdOp: r.verstuurd_op ? String(r.verstuurd_op) : null,
     minuten: Number(r.minuten), km: Number(r.km_f), regels: Number(r.regels),
   }));
 }
@@ -381,10 +378,15 @@ export async function verwijderConcept(sessie: Sessie, id: string): Promise<void
   await alsGebruiker(sessie.authUserId, (tx) => tx`select verwijder_concept(${id})`);
 }
 
-export async function zetBetaald(sessie: Sessie, id: string, datum: Datum | null): Promise<void> {
+/**
+ * Betaald melden boekt de ontvangst op het betaalmiddel (bank, kas, privé);
+ * `via` null is verrekend zonder geldstroom, bijvoorbeeld een creditfactuur
+ * tegen het origineel. Ongedaan maken haalt de bankboeking weer weg.
+ */
+export async function zetBetaald(sessie: Sessie, id: string, datum: Datum | null, via: string | null = null): Promise<void> {
   await alsGebruiker(sessie.authUserId, (tx) => datum
-    ? tx`update factuur set status = 'betaald', betaald_op = ${datum} where id = ${id} and status = 'definitief'`
-    : tx`update factuur set status = 'definitief', betaald_op = null where id = ${id} and status = 'betaald'`);
+    ? tx`select boek_betaling_factuur(${id}, ${datum}, ${via}::uuid)`
+    : tx`select maak_betaling_factuur_ongedaan(${id})`);
 }
 
 export async function crediteer(sessie: Sessie, id: string, reden: string): Promise<string> {
@@ -394,22 +396,34 @@ export async function crediteer(sessie: Sessie, id: string, reden: string): Prom
   return r.id as string;
 }
 
-export async function markeerVerwerkt(sessie: Sessie, id: string): Promise<void> {
+export async function markeerVerstuurd(sessie: Sessie, id: string): Promise<void> {
   await alsGebruiker(sessie.authUserId, (tx) => tx`
-    update factuur set verwerkt_op = now() where id = ${id} and status <> 'concept'
+    update factuur set verstuurd_op = now() where id = ${id} and status <> 'concept'
   `);
 }
 
 // --------------------------------------------------- grootboek en btw ----
 
-export type Grootboek = { id: string; nummer: string; naam: string; soort: string; actief: boolean };
+export type RekeningSoort = "activa" | "passiva" | "eigen_vermogen" | "omzet" | "kosten";
+export const REKENING_SOORTEN: RekeningSoort[] = ["activa", "passiva", "eigen_vermogen", "omzet", "kosten"];
+export const SOORT_LABEL: Record<RekeningSoort, string> = {
+  activa: "activa", passiva: "passiva", eigen_vermogen: "eigen vermogen", omzet: "omzet", kosten: "kosten",
+};
+export type Grootboek = {
+  id: string; nummer: string; naam: string; soort: RekeningSoort; actief: boolean;
+  betaalmiddel: boolean; btwCode: string | null;
+};
 export type BtwTarief = { code: string; omschrijving: string; percentage: number; actief: boolean };
 
 export async function grootboekrekeningen(sessie: Sessie): Promise<Grootboek[]> {
   const rijen = await alsGebruiker(sessie.authUserId, (tx) => tx`
-    select id, nummer, naam, soort::text as soort, actief from grootboekrekening order by nummer
+    select id, nummer, naam, soort::text as soort, actief, betaalmiddel, btw_code
+    from grootboekrekening order by nummer
   `);
-  return rijen.map((r) => ({ id: r.id as string, nummer: r.nummer as string, naam: r.naam as string, soort: r.soort as string, actief: r.actief as boolean }));
+  return rijen.map((r) => ({
+    id: r.id as string, nummer: r.nummer as string, naam: r.naam as string, soort: r.soort as RekeningSoort,
+    actief: r.actief as boolean, betaalmiddel: Boolean(r.betaalmiddel), btwCode: (r.btw_code as string) ?? null,
+  }));
 }
 
 export async function btwTarieven(sessie: Sessie): Promise<BtwTarief[]> {
@@ -419,15 +433,17 @@ export async function btwTarieven(sessie: Sessie): Promise<BtwTarief[]> {
   return rijen.map((r) => ({ code: r.code as string, omschrijving: r.omschrijving as string, percentage: Number(r.percentage), actief: r.actief as boolean }));
 }
 
-export async function nieuweGrootboekrekening(sessie: Sessie, nummer: string, naam: string, soort: string) {
+export async function nieuweGrootboekrekening(sessie: Sessie, nummer: string, naam: string, soort: RekeningSoort, betaalmiddel: boolean) {
   await alsGebruiker(sessie.authUserId, (tx) => tx`
-    insert into grootboekrekening (nummer, naam, soort) values (${nummer}, ${naam}, ${soort}::grootboek_soort)
+    insert into grootboekrekening (nummer, naam, soort, betaalmiddel)
+    values (${nummer}, ${naam}, ${soort}::rekening_soort, ${betaalmiddel})
   `);
 }
 
-export async function werkGrootboekBij(sessie: Sessie, id: string, nummer: string, naam: string, actief: boolean) {
+export async function werkGrootboekBij(sessie: Sessie, id: string, nummer: string, naam: string, actief: boolean, betaalmiddel: boolean) {
   await alsGebruiker(sessie.authUserId, (tx) => tx`
-    update grootboekrekening set nummer = ${nummer}, naam = ${naam}, actief = ${actief} where id = ${id}
+    update grootboekrekening set nummer = ${nummer}, naam = ${naam}, actief = ${actief}, betaalmiddel = ${betaalmiddel}
+    where id = ${id}
   `);
 }
 
@@ -469,49 +485,6 @@ export async function werkFactuurInstellingenBij(sessie: Sessie, f: FactuurInste
       grootboek_overig = ${f.grootboekOverig}, betaaltermijn_dagen = ${f.betaaltermijnDagen},
       factuur_voettekst = ${f.voettekst}, factuur_prefix = ${f.prefix}
     where id
-  `);
-}
-
-// --------------------------------------------------------- boekhouding ---
-
-export type JournaalRegel = {
-  nummer: string; datum: Datum; vervaldatum: Datum; status: string; klant: string;
-  klantcode: string | null; klantEmail: string | null; referentieKlant: string | null;
-  projectcode: string | null; project: string | null; volgorde: number; omschrijving: string;
-  aantal: number; eenheid: string; prijs: number; bedrag: number; btwCode: string;
-  btwPercentage: number; btwBedrag: number; bedragIncl: number; grootboekNummer: string | null;
-  grootboekNaam: string | null; bron: string; geexporteerdOp: string | null; factuurId: string;
-};
-
-/** Journaalregels voor de boekhouding; `alleenNieuw` = nog niet geëxporteerd. */
-export async function journaal(sessie: Sessie, van: Datum, tot: Datum, alleenNieuw: boolean): Promise<JournaalRegel[]> {
-  const rijen = await alsGebruiker(sessie.authUserId, (tx) => tx`
-    select *, aantal::float8 as aantal_f, prijs::float8 as prijs_f, bedrag::float8 as bedrag_f,
-           btw_percentage::float8 as pct_f, btw_bedrag::float8 as btw_f, bedrag_incl::float8 as incl_f
-    from v_factuur_journaal
-    where datum between ${van} and ${tot}
-      and (${!alleenNieuw} or geexporteerd_op is null)
-    order by datum, nummer, volgorde
-  `);
-  return rijen.map((r) => ({
-    nummer: r.nummer as string, datum: r.datum as Datum, vervaldatum: r.vervaldatum as Datum,
-    status: r.status as string, klant: r.klant as string, klantcode: (r.klantcode as string) ?? null,
-    klantEmail: (r.klant_email as string) ?? null, referentieKlant: (r.referentie_klant as string) ?? null,
-    projectcode: (r.projectcode as string) ?? null, project: (r.project as string) ?? null,
-    volgorde: Number(r.volgorde), omschrijving: r.omschrijving as string, aantal: Number(r.aantal_f),
-    eenheid: r.eenheid as string, prijs: Number(r.prijs_f), bedrag: Number(r.bedrag_f),
-    btwCode: r.btw_code as string, btwPercentage: Number(r.pct_f), btwBedrag: Number(r.btw_f),
-    bedragIncl: Number(r.incl_f), grootboekNummer: (r.grootboek_nummer as string) ?? null,
-    grootboekNaam: (r.grootboek_naam as string) ?? null, bron: r.bron as string,
-    geexporteerdOp: r.geexporteerd_op ? String(r.geexporteerd_op) : null, factuurId: r.factuur_id as string,
-  }));
-}
-
-export async function markeerGeexporteerd(sessie: Sessie, factuurIds: string[], kenmerk: string): Promise<void> {
-  if (!factuurIds.length) return;
-  await alsGebruiker(sessie.authUserId, (tx) => tx`
-    update factuur set geexporteerd_op = now(), export_kenmerk = ${kenmerk}
-    where id = any(${factuurIds}::uuid[]) and status <> 'concept'
   `);
 }
 
