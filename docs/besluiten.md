@@ -58,6 +58,10 @@ staan.
   inkoop) en elektronisch indienen bij Belastingdienst en KvK — dat vraagt
   een PKIoverheid-certificaat en Digipoort; de bedragen staan per rubriek
   klaar voor de portalen.
+- **Verkoop** — pipeline, onderwerpen en gesprekken zitten in de app. Het
+  meeschrijven van gesprekken gebruikt de spraakherkenning van de browser en
+  werkt daardoor alleen live, niet op een opgenomen bestand; wil je dat later
+  wel, dan is een externe spraakdienst nodig.
 - **Loon** — de loonparameters (schijven, heffingskortingen, premies) staan
   per jaar in de app, vooraf ingevuld naar beste weten. Leg ze elk jaar naast
   het Handboek Loonheffingen en de premiebeschikking (Whk) en vink ze dan af;

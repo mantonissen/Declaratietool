@@ -1095,4 +1095,104 @@ begin
 end
 $$;
 
+-- --------------------------------------------------------- 25. verkoop -----
+
+do $$
+declare
+  p_id  uuid;
+  o_id  uuid;
+  k_id  uuid;
+  g_id  uuid;
+  r     record;
+  n     int;
+begin
+  -- Projectleider: prospect aanmaken en door de fasen halen.
+  set local role authenticated;
+  perform set_config('request.jwt.claim.sub',
+                     '33333333-3333-3333-3333-333333333333', true);
+
+  insert into prospect (naam, contactpersoon, waarde, bron, eigenaar_id, volgende_actie, volgende_actie_op)
+  values ('Provincie Overijssel', 'H. de Groot', 24000, 'netwerk', 'bbbbbbbb-0000-0000-0000-000000000003',
+          'Bellen over de uitvraag', current_date - 2)
+  returning id into p_id;
+  select * into r from prospect where id = p_id;
+  if r.fase <> 'lead' or r.kans <> 20 then raise exception 'Nieuwe prospect hoort lead met kans 20 te zijn'; end if;
+  select count(*) into n from prospect_fase_log where prospect_id = p_id;
+  if n <> 1 then raise exception 'Aanmaken hoort één logregel te geven, kreeg %', n; end if;
+
+  update prospect set fase = 'offerte' where id = p_id;
+  select * into r from prospect where id = p_id;
+  if r.kans <> 70 then raise exception 'Fase offerte hoort kans 70 te geven, kreeg %', r.kans; end if;
+  update prospect set kans = 80 where id = p_id;
+  if (select kans from prospect where id = p_id) <> 80 then raise exception 'Eigen kans hoort te blijven staan'; end if;
+
+  -- Pipeline: de offerte telt gewogen mee, de actie is achterstallig.
+  select * into r from v_pipeline where fase = 'offerte';
+  if r.aantal <> 1 or r.waarde <> 24000 or r.gewogen <> 19200 or r.achterstallig <> 1 then
+    raise exception 'Pipeline offerte klopt niet: % % % %', r.aantal, r.waarde, r.gewogen, r.achterstallig;
+  end if;
+
+  -- Onderwerpen met status.
+  insert into onderwerp (naam) values ('Vergunningen') returning id into o_id;
+  insert into prospect_onderwerp (prospect_id, onderwerp_id, status) values (p_id, o_id, 'offerte');
+  begin
+    insert into onderwerp (naam) values ('vergunningen');
+    raise exception 'Dubbel onderwerp had geweigerd moeten worden';
+  exception when unique_violation then null;
+  end;
+
+  -- Gesprek met transcript aan de prospect.
+  insert into gesprek (prospect_id, medewerker_id, titel, soort, duur_minuten, transcript, live)
+  values (p_id, 'bbbbbbbb-0000-0000-0000-000000000003', 'Kennismaking', 'telefoon', 25, 'Goedemorgen, u spreekt met…', true)
+  returning id into g_id;
+
+  -- Winnen: er komt een klant met de gegevens van de prospect.
+  k_id := win_prospect(p_id);
+  select * into r from prospect where id = p_id;
+  if r.fase <> 'gewonnen' or r.kans <> 100 or r.klant_id <> k_id or r.gesloten_op is null or r.volgende_actie is not null then
+    raise exception 'Winnen hoort fase, kans, klant en sluitdatum te zetten';
+  end if;
+  select * into r from klant where id = k_id;
+  if r.naam <> 'Provincie Overijssel' or r.contactpersoon <> 'H. de Groot' then raise exception 'Klant hoort de prospectgegevens te krijgen'; end if;
+  if (select klant_id from gesprek where id = g_id) <> k_id then raise exception 'Het gesprek hoort mee te gaan naar de klant'; end if;
+  select count(*) into n from prospect_fase_log where prospect_id = p_id;
+  if n <> 3 then raise exception 'Verwacht drie logregels (lead, offerte, gewonnen), kreeg %', n; end if;
+  select * into r from v_pipeline where fase = 'gewonnen';
+  if r.aantal <> 1 or r.waarde <> 24000 then raise exception 'Gewonnen hoort dit jaar mee te tellen'; end if;
+
+  -- Verliezen van een tweede.
+  insert into prospect (naam, waarde) values ('Bouwbedrijf Noord', 5000) returning id into p_id;
+  perform verlies_prospect(p_id, 'Te duur');
+  select * into r from prospect where id = p_id;
+  if r.fase <> 'verloren' or r.kans <> 0 or r.verloren_reden <> 'Te duur' then raise exception 'Verliezen klopt niet'; end if;
+  reset role;
+
+  -- Medewerker: geen prospects, wel een eigen gesprek met een klant.
+  set local role authenticated;
+  perform set_config('request.jwt.claim.sub',
+                     '22222222-2222-2222-2222-222222222222', true);
+  select count(*) into n from prospect;
+  if n <> 0 then raise exception 'Medewerker zag % prospects', n; end if;
+  select count(*) into n from gesprek;
+  if n <> 0 then raise exception 'Medewerker zag andermans gesprek'; end if;
+  insert into gesprek (klant_id, medewerker_id, titel, transcript)
+  values (k_id, 'bbbbbbbb-0000-0000-0000-000000000002', 'Locatiebezoek', 'Notities van het bezoek.');
+  select count(*) into n from gesprek;
+  if n <> 1 then raise exception 'Medewerker hoort zijn eigen gesprek te zien'; end if;
+  begin
+    insert into gesprek (klant_id, medewerker_id, titel) values (k_id, 'bbbbbbbb-0000-0000-0000-000000000003', 'Namens een ander');
+    raise exception 'Medewerker mocht geen gesprek op naam van een ander maken';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into prospect (naam) values ('Stiekem');
+    raise exception 'Medewerker mocht geen prospect maken';
+  exception when insufficient_privilege then null;
+  end;
+  reset role;
+
+  raise notice 'OK 25. verkoop: fasen met log en kans, pipeline, onderwerpen, gesprekken, winnen maakt klant, afscherming';
+end
+$$;
+
 select 'Alle tests geslaagd.' as resultaat;

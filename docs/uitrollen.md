@@ -11,7 +11,7 @@ half uur, het meeste daarvan is klikken door instellingen.
    **Frankfurt (eu-central-1)** of een andere EU-regio (keuze A3).
 2. Ga naar *SQL Editor* en voer de migraties uit, in volgorde:
    `supabase/migrations/20260904120000_basis.sql` tot en met
-   `…20260906090000_jaarwerk.sql`. Daarna `supabase/seed.sql`.
+   `…20260914090000_verkoop.sql`. Daarna `supabase/seed.sql`.
 
    Heb je de Supabase CLI: `supabase link` en `supabase db push` doen
    hetzelfde.

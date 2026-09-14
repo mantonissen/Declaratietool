@@ -214,3 +214,41 @@ where u.medewerker_id = w.medewerker_id
   and u.weekstaat_id is null
   and extract(isoyear from u.datum)::int = w.jaar
   and extract(week    from u.datum)::int = w.week;
+
+-- Verkoop: onderwerpen, prospects in verschillende fasen, een gesprek.
+insert into onderwerp (naam, omschrijving, sortering) values
+  ('Gebiedsontwikkeling', 'Planvorming en procesbegeleiding bij herontwikkeling', 1),
+  ('Vergunningen', 'Omgevingsvergunning en bestemmingsplantrajecten', 2),
+  ('Participatie', 'Bewonersavonden en omgevingsdialoog', 3),
+  ('Beheer en monitoring', 'Doorlopend beheer op abonnement', 4),
+  ('Second opinion', 'Toets op plannen van derden', 5)
+on conflict do nothing;
+
+insert into prospect (id, naam, contactpersoon, email, plaats, bron, fase, waarde, kans, verwacht_op, volgende_actie, volgende_actie_op, eigenaar_id, notities) values
+  ('ffffffff-0000-0000-0000-000000000001', 'Provincie Overijssel', 'H. de Groot', 'h.degroot@overijssel.nl', 'Zwolle', 'netwerk', 'offerte', 24000, 70, current_date + 21, 'Offerte nabellen', current_date + 3, 'bbbbbbbb-0000-0000-0000-000000000001', 'Uitvraag via aanbestedingskalender; wil in Q4 starten.'),
+  ('ffffffff-0000-0000-0000-000000000002', 'Woningcorporatie Salland Wonen', 'M. Bakker', 'm.bakker@sallandwonen.nl', 'Raalte', 'verwijzing', 'afspraak', 12500, 50, current_date + 45, 'Kennismaking op kantoor', current_date + 7, 'bbbbbbbb-0000-0000-0000-000000000003', null),
+  ('ffffffff-0000-0000-0000-000000000003', 'Gemeente Deventer', 'S. Vos', null, 'Deventer', 'website', 'contact', 8000, 25, current_date + 60, 'Terugbellen na vakantie', current_date - 2, 'bbbbbbbb-0000-0000-0000-000000000001', null),
+  ('ffffffff-0000-0000-0000-000000000004', 'Bouwgroep Meridiaan', 'P. Jansma', null, 'Apeldoorn', 'bestaande klant', 'lead', 30000, 10, current_date + 120, 'Verkennend gesprek plannen', null, 'bbbbbbbb-0000-0000-0000-000000000003', 'Mogelijke vervolgopdracht na Kanaalzone.'),
+  ('ffffffff-0000-0000-0000-000000000005', 'Stichting Erfgoed IJsselstreek', 'A. Timmer', null, 'Kampen', 'koud', 'verloren', 6000, 0, null, null, null, 'bbbbbbbb-0000-0000-0000-000000000001', null)
+on conflict (id) do nothing;
+update prospect set verloren_reden = 'Gekozen voor een lokaal bureau', gesloten_op = current_date - 20 where id = 'ffffffff-0000-0000-0000-000000000005';
+
+insert into prospect_onderwerp (prospect_id, onderwerp_id, status)
+select p.id, o.id, s.status::onderwerp_status
+from (values
+  ('ffffffff-0000-0000-0000-000000000001', 'Gebiedsontwikkeling', 'offerte'),
+  ('ffffffff-0000-0000-0000-000000000001', 'Participatie', 'besproken'),
+  ('ffffffff-0000-0000-0000-000000000002', 'Vergunningen', 'interesse'),
+  ('ffffffff-0000-0000-0000-000000000002', 'Beheer en monitoring', 'interesse'),
+  ('ffffffff-0000-0000-0000-000000000003', 'Second opinion', 'besproken'),
+  ('ffffffff-0000-0000-0000-000000000004', 'Gebiedsontwikkeling', 'interesse')
+) as s(prospect_id, onderwerp, status)
+join prospect p on p.id = s.prospect_id::uuid
+join onderwerp o on lower(o.naam) = lower(s.onderwerp)
+on conflict do nothing;
+
+insert into gesprek (prospect_id, medewerker_id, datum, titel, soort, duur_minuten, transcript, samenvatting, afspraken, live)
+values ('ffffffff-0000-0000-0000-000000000001', 'bbbbbbbb-0000-0000-0000-000000000001', now() - interval '6 days', 'Toelichting uitvraag', 'telefoon', 22,
+  E'Goedemorgen, met Martijn Antonissen. Ik bel over de uitvraag voor het stationsgebied.\n\nJa, goed dat u belt. We zoeken vooral iemand die het participatietraject kan trekken, de planvorming ligt al grotendeels vast.\n\nDan stel ik voor dat we de offerte opbouwen in drie termijnen: start, tussenoplevering na de bewonersavonden en eindrapport.\n\nDat klinkt werkbaar. Stuur maar op, dan bespreek ik het intern voor de zomer voorbij is.',
+  'Provincie zoekt vooral begeleiding van het participatietraject; planvorming ligt vast. Offerte in drie termijnen is akkoord als opzet.',
+  E'Offerte in drie termijnen opstellen en vóór vrijdag sturen\nReferentie Kanaalzone meesturen\nNabellen over drie weken', true);

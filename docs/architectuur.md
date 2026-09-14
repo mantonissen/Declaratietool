@@ -89,6 +89,11 @@ account.
 | `/boekhouding/jaarrekening` | Balans en W&V in jaarrekeningindeling met vorig jaar, vennootschapsbelasting, stappen tot deponeren, KvK-velden; PDF via `/api/jaarrekening` |
 | `/boekhouding/loon` | Dienstverbanden en loonruns; `/loon/[id]` de run met loonaangifte en betalingen; `/loon/parameters` de tarieven per jaar; loonstrook via `/api/loonstrook` |
 | `/boekhouding/aangiften` | Kalender van btw, loonaangifte, vpb en jaarrekening met deadlines en stand |
+| `/verkoop` | Pipeline: prospects per fase met waarde, kans en volgende actie; filter op onderwerp; gewonnen en verloren |
+| `/verkoop/[id]` | Eén prospect: fase, winnen (maakt klant) of verliezen, onderwerpen met status, gesprekken, verloop |
+| `/verkoop/onderwerpen` | Catalogus van onderwerpen met per status hoeveel prospects erin zitten |
+| `/verkoop/gesprek/nieuw` | Gesprek live meeschrijven met de spraakherkenning van de browser; ook voor een medewerker bij een klant |
+| `/verkoop/gesprek/[id]` | Transcript, samenvatting en afspraken teruglezen en bewerken |
 | `/beheer/instellingen` | Bedrijfsgegevens voor bovenaan factuur en specificatie |
 | `/beheer/grootboek` | Rekeningschema, vaste rekeningen van de boekhouding, standaardrekening per soort regel, btw-tarieven, betaaltermijn, voettekst |
 | `/export` → `/api/export` | CSV van uren of ritten (E2a) |
@@ -272,6 +277,34 @@ wat er per jaar ingediend moet worden en hoe ver het staat: btw per tijdvak,
 loonaangifte per maand zodra er een dienstverband is, en na afloop van het
 jaar de vpb-aangifte, het opmaken en vaststellen van de jaarrekening en het
 deponeren, elk met de wettelijke uiterste datum.
+
+## Verkoop
+
+Vóór er een project is, is er een **prospect** (`prospect`): een mogelijke
+opdracht met een fase (lead, contact, afspraak, offerte, gewonnen, verloren),
+een verwachte waarde, een kans en een volgende actie met datum. De kans volgt
+de fase (10, 25, 50, 70 procent) tot je hem zelf zet; elke fasewissel komt in
+`prospect_fase_log`. `win_prospect()` maakt van de prospect een klant (of
+koppelt een bestaande) en neemt de gesprekken mee; `verlies_prospect()` legt
+de reden vast. `v_pipeline` telt per fase aantal, waarde en gewogen waarde
+(waarde maal kans), en voor gewonnen en verloren alleen het lopende jaar.
+
+**Onderwerpen** (`onderwerp`) zijn een catalogus van diensten en thema's;
+`prospect_onderwerp` hangt ze aan een prospect met een status (interesse,
+besproken, offerte, akkoord, afgewezen). Zo is per onderwerp te zien waar de
+vraag zit en per prospect wat er speelt.
+
+**Gesprekken** (`gesprek`) horen bij een prospect of een klant en dragen
+transcript, samenvatting en afspraken. Het transcript komt van
+`components/Transcriber.tsx`: de Web Speech API van de browser zet spraak om
+in tekst terwijl het gesprek loopt, de app bewaart alleen de tekst. Er gaat
+niets naar een externe dienst; dat betekent ook dat het alleen live werkt
+(Chrome, Edge en Android; Safari beperkt) en niet op een opgenomen bestand.
+Chrome stopt de herkenning na stilte; de component start hem opnieuw zolang
+de knop aanstaat, telt de duur en vult de bijzondere-tekens niet in — die
+verbeter je in de tekst. Een medewerker mag een gesprek bij een klant
+vastleggen en leest alleen zijn eigen gesprekken terug; prospects zijn voor
+projectleider en eigenaar.
 
 ## Factuur en specificatie als PDF
 

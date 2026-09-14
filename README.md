@@ -24,6 +24,12 @@ Indienen bij Belastingdienst en KvK doe je zelf via hun portalen: de app zet de
 bedragen per rubriek klaar en houdt bij wat gedaan is. De loonparameters per
 jaar zijn vooraf ingevuld maar moeten tegen de officiële tabellen gelegd worden.
 
+Aan de voorkant zit verkoop: een pipeline van prospects (lead tot offerte,
+gewonnen wordt een klant), onderwerpen per prospect met een status, en
+gesprekken die je live meeschrijft met de spraakherkenning van de browser —
+transcript, samenvatting en afspraken bij de prospect of klant, zonder externe
+dienst.
+
 | | |
 |---|---|
 | `docs/keuzeplan.html` | Het plan: per beslissing de opties en hun gevolgen |
@@ -58,7 +64,7 @@ omgeving zet je `AUTH_MODUS=supabase` en vul je de Supabase-variabelen in.
 ## Testen
 
 ```sh
-npm run test:db     # migraties en vierentwintig schemacontroles
+npm run test:db     # migraties en vijfentwintig schemacontroles
 npm run typecheck
 npm run build
 ```

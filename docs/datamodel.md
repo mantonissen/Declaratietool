@@ -267,6 +267,21 @@ loonheffing (schijven, kortingen), stroken voor een werknemer, een dga en een
 deeltijdmaand, de sluitende journaalpost, de betalingen, het vakantiegeld als
 bijzondere beloning en de afscherming.
 
+## Verkoop
+
+`prospect` met `fase` (enum `pipeline_fase`), `waarde`, `kans`, `verwacht_op`,
+`volgende_actie(_op)`, `eigenaar_id`, `klant_id` na winst, `verloren_reden`,
+`gesloten_op`. Een before-trigger houdt kans en sluitdatum bij de fase, een
+after-trigger (security definer) schrijft `prospect_fase_log`. `onderwerp`
+(uniek op naam, hoofdletterongevoelig) en `prospect_onderwerp` met
+`onderwerp_status`. `gesprek` met `prospect_id` of `klant_id` (minstens één),
+`medewerker_id`, `soort`, `duur_minuten`, `taal`, `transcript`,
+`samenvatting`, `afspraken` en `live`. Rechten: prospects en onderwerpen
+vanaf projectleider; gesprekken vanaf projectleider alles, een medewerker
+zijn eigen gesprekken met een klant. Test 25 loopt een prospect van lead via
+offerte naar gewonnen, controleert log, kans, pipeline en de aangemaakte
+klant, en de afscherming.
+
 ## Testen
 
 ```

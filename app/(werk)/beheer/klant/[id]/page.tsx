@@ -4,6 +4,7 @@ import { vereisteSessie, magBeheren } from "@/lib/auth";
 import { alsGebruiker } from "@/lib/db";
 import { getal } from "@/lib/datum";
 import { btwTarieven } from "@/lib/facturatie";
+import { gesprekken, SOORT_LABEL } from "@/lib/verkoop";
 import { werkKlantBij, nieuwProject } from "../../acties";
 
 export const dynamic = "force-dynamic";
@@ -38,7 +39,7 @@ export default async function KlantPagina({
   const klant = klanten[0];
   if (!klant) notFound();
   const eigenaar = sessie.rechten === "eigenaar";
-  const btw = eigenaar ? await btwTarieven(sessie) : [];
+  const [btw, gesp] = await Promise.all([eigenaar ? btwTarieven(sessie) : Promise.resolve([]), gesprekken(sessie, { klantId: id })]);
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-5 md:px-8 md:py-8">
@@ -211,6 +212,20 @@ export default async function KlantPagina({
           </tbody>
         </table>
       </div>
+
+      <section className="mt-8">
+        <div className="mb-2 flex items-baseline justify-between"><h2 className="text-lg font-semibold">Gesprekken</h2><Link href={`/verkoop/gesprek/nieuw?klant=${id}`} className="knop knop-stil knop-klein">Gesprek meeschrijven</Link></div>
+        <ul className="kaart divide-y divide-line">
+          {gesp.slice(0, 10).map((g) => (
+            <li key={g.id} className="px-4 py-2.5 text-sm">
+              <Link href={`/verkoop/gesprek/${g.id}`} className="font-medium text-accent-ink hover:underline">{g.titel}</Link>
+              <span className="ml-2 text-xs text-muted">{g.datum.slice(8, 10)}-{g.datum.slice(5, 7)}-{g.datum.slice(0, 4)} · {SOORT_LABEL[g.soort]}{g.duurMinuten ? ` · ${g.duurMinuten} min` : ""} · {g.medewerker}</span>
+              {g.samenvatting && <p className="mt-0.5 text-xs text-ink-2">{g.samenvatting}</p>}
+            </li>
+          ))}
+          {gesp.length === 0 && <li className="px-4 py-3 text-sm text-muted">Nog geen gesprek vastgelegd bij deze klant.</li>}
+        </ul>
+      </section>
 
       <form action={nieuwProject} className="kaart mt-6 flex flex-col gap-4 p-4">
         <input type="hidden" name="klantId" value={id} />

@@ -67,6 +67,7 @@ export default async function RittenPagina({
           <h1 className="mt-1 text-2xl font-bold tracking-tight md:text-3xl">
             Ritten en bezoeken
           </h1>
+          <a href="/verkoop/gesprek/nieuw" className="mt-1 inline-block text-sm text-accent-ink hover:underline">Gesprek bij een klant meeschrijven →</a>
         </div>
         <div className="flex items-center gap-1">
           <Link

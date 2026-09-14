@@ -16,6 +16,9 @@ export default async function WerkLayout({
     { href: "/ritten", label: "Ritten", icoon: "ritten" as const },
     { href: "/week", label: "Week", icoon: "week" as const },
     { href: "/inzicht", label: "Inzicht", icoon: "inzicht" as const },
+    ...(magBeheren(sessie.rechten)
+      ? [{ href: "/verkoop", label: "Verkoop", icoon: "verkoop" as const }]
+      : []),
     ...(sessie.rechten === "eigenaar"
       ? [{ href: "/boekhouding", label: "Boekhouding", icoon: "boekhouding" as const }]
       : []),

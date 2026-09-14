@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-type Icoon = "uren" | "ritten" | "week" | "inzicht" | "boekhouding" | "beheer";
+type Icoon = "uren" | "ritten" | "week" | "inzicht" | "verkoop" | "boekhouding" | "beheer";
 
 type Item = { href: string; label: string; icoon: Icoon };
 
@@ -16,6 +16,8 @@ const PADEN: Record<Icoon, string> = {
   week: "M4 8h16M4 5h16v15H4zM8 3v4M16 3v4",
   // Staafjes
   inzicht: "M4 20v-7M10 20V6M16 20v-10M3 20h18",
+  // Trechter
+  verkoop: "M4 5h16l-6 8v6l-4-2v-4z",
   // Kasboek: twee kolommen met een middenlijn
   boekhouding: "M5 4h14v16H5zM12 4v16M8 9h2M8 13h2M14 9h2M14 13h2",
   // Schuifregelaars
