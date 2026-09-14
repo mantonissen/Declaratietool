@@ -10,6 +10,8 @@ import type { Datum } from "./datum";
 const n = (v: unknown) => Number(v ?? 0);
 const d = (v: unknown) => (v ? (String(v) as Datum) : null);
 const t = (v: unknown) => ((v as string) ?? null);
+// Timestamps komen als Date binnen; overal ISO-tekst, zodat slice(0, 10) klopt.
+const iso = (v: unknown) => (v instanceof Date ? v : new Date(String(v))).toISOString();
 
 export type Fase = "lead" | "contact" | "afspraak" | "offerte" | "gewonnen" | "verloren";
 export const FASEN: Fase[] = ["lead", "contact", "afspraak", "offerte", "gewonnen", "verloren"];
@@ -43,7 +45,7 @@ const naarProspect = (r: Record<string, unknown>): Prospect => ({
   plaats: t(r.plaats), bron: t(r.bron), fase: r.fase as Fase, waarde: r.waarde === null ? null : n(r.waarde_f), kans: Number(r.kans),
   verwachtOp: d(r.verwacht_op), volgendeActie: t(r.volgende_actie), volgendeActieOp: d(r.volgende_actie_op),
   eigenaarId: t(r.eigenaar_id), eigenaar: t(r.eigenaar), klantId: t(r.klant_id), klant: t(r.klant),
-  verlorenReden: t(r.verloren_reden), notities: t(r.notities), geslotenOp: d(r.gesloten_op), aangemaaktOp: String(r.aangemaakt_op),
+  verlorenReden: t(r.verloren_reden), notities: t(r.notities), geslotenOp: d(r.gesloten_op), aangemaaktOp: iso(r.aangemaakt_op),
   onderwerpen: ((r.onderwerpen as ProspectOnderwerp[] | null) ?? []), gesprekken: Number(r.gesprekken ?? 0),
 });
 
@@ -76,7 +78,7 @@ export async function prospect(sessie: Sessie, id: string): Promise<(Prospect & 
   if (!rijen[0]) return null;
   return {
     ...naarProspect(rijen[0]),
-    log: log.map((l) => ({ van: (l.van as Fase) ?? null, naar: l.naar as Fase, door: t(l.door), op: String(l.op) })),
+    log: log.map((l) => ({ van: (l.van as Fase) ?? null, naar: l.naar as Fase, door: t(l.door), op: iso(l.op) })),
   };
 }
 
@@ -193,7 +195,7 @@ export type Gesprek = {
 
 const naarGesprek = (r: Record<string, unknown>): Gesprek => ({
   id: r.id as string, prospectId: t(r.prospect_id), prospect: t(r.prospect), klantId: t(r.klant_id), klant: t(r.klant),
-  medewerkerId: r.medewerker_id as string, medewerker: r.medewerker as string, datum: String(r.datum), titel: r.titel as string,
+  medewerkerId: r.medewerker_id as string, medewerker: r.medewerker as string, datum: iso(r.datum), titel: r.titel as string,
   soort: r.soort as GesprekSoort, duurMinuten: r.duur_minuten === null ? null : Number(r.duur_minuten), taal: r.taal as string,
   transcript: t(r.transcript), samenvatting: t(r.samenvatting), afspraken: t(r.afspraken), live: Boolean(r.live),
 });
