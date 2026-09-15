@@ -16,6 +16,9 @@ function maakVerbinding(): postgres.Sql {
   return postgres(url, {
     max: 10,
     idle_timeout: 20,
+    // De Supabase-pooler (poort 6543) geeft elke transactie een willekeurige
+    // serververbinding; een voorbereide query bestaat daar dan niet meer.
+    prepare: false,
     // De datums in dit model zijn kalenderdatums zonder tijdzone. Zonder deze
     // omzetting maakt de driver er Date-objecten van die in een andere zone
     // een dag kunnen verschuiven.
