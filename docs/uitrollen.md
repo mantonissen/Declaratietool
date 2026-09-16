@@ -32,7 +32,8 @@ Bij *Authentication → Providers*:
 
 Zet bij *Authentication → URL Configuration* de *Site URL* op je Vercel-adres
 zodra je dat hebt (stap 3), en voeg `https://<jouw-adres>/**` toe aan de
-redirect-lijst.
+redirect-lijst. Wil je ook op preview-deploys inloggen, voeg dan
+`https://*-<jouw-vercel-account>.vercel.app/**` toe.
 
 ## 3. Vercel
 

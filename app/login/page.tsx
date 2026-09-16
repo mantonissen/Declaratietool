@@ -18,7 +18,21 @@ async function kiesGebruiker(formData: FormData) {
   redirect("/uren");
 }
 
-export default async function LoginPagina() {
+const FOUTEN: Record<string, string> = {
+  onbekend:
+    "Je bent ingelogd, maar dit e-mailadres staat niet als medewerker in de tool. Vraag de eigenaar om je toe te voegen.",
+  code: "Inloggen is niet afgerond. Probeer het opnieuw.",
+  "geen-code": "Inloggen is niet afgerond. Probeer het opnieuw.",
+  start: "Inloggen kon niet starten. Staat deze aanbieder aan in Supabase?",
+  aanbieder: "Onbekende manier van inloggen.",
+};
+
+export default async function LoginPagina({
+  searchParams,
+}: {
+  searchParams: Promise<{ fout?: string }>;
+}) {
+  const { fout } = await searchParams;
   if (await huidigeSessie()) redirect("/uren");
 
   const dev = devModusActief();
@@ -84,6 +98,11 @@ export default async function LoginPagina() {
           <p className="mt-3 text-sm text-ink-2">
             Log in met het account waarmee je ook je mail leest.
           </p>
+          {fout && (
+            <p className="mt-4 rounded border border-warn bg-warn-bg p-4 text-sm">
+              {FOUTEN[fout] ?? "Inloggen is mislukt."}
+            </p>
+          )}
           <div className="mt-6 flex flex-col gap-3">
             <a className="knop knop-primair" href="/api/auth/start?aanbieder=google">
               Doorgaan met Google

@@ -2,6 +2,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { alsSysteem } from "./db";
+import { supabaseInstellingen } from "./supabase";
 
 export type Rechten = "medewerker" | "projectleider" | "eigenaar";
 
@@ -40,19 +41,13 @@ async function ingelogdAccount(): Promise<{ id: string; email: string | null } |
     return id ? { id, email: null } : null;
   }
 
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_ANON_KEY;
-  if (!url || !key) {
-    throw new Error(
-      "SUPABASE_URL en SUPABASE_ANON_KEY ontbreken.",
-    );
-  }
+  const { url, key } = supabaseInstellingen();
 
   const supabase = createServerClient(url, key, {
     cookies: {
       getAll: () => jar.getAll(),
       // In een server component mag je geen cookies zetten; Supabase
-      // ververst het token dan via de middleware.
+      // ververst het token dan via proxy.ts.
       setAll: () => {},
     },
   });
