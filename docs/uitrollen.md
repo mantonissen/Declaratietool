@@ -30,6 +30,14 @@ Bij *Authentication → Providers*:
 - **Microsoft (Azure)**: registreer een app in Entra ID, zelfde redirect URL,
   plak application-id en secret in Supabase.
 
+- **Inloglink per mail**: staat standaard aan (*Email*). Zet bij
+  *Authentication → Emails → Magic Link* de link in het sjabloon op
+  `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email`, dan werkt de
+  link ook als je hem op een ander apparaat opent. Stel onder
+  *Project Settings → Authentication → SMTP* een eigen mailserver in (bijv.
+  Resend): de ingebouwde mail van Supabase stuurt alleen naar leden van je
+  Supabase-team en maar een paar berichten per uur.
+
 Zet bij *Authentication → URL Configuration* de *Site URL* op je Vercel-adres
 zodra je dat hebt (stap 3), en voeg `https://<jouw-adres>/**` toe aan de
 redirect-lijst. Wil je ook op preview-deploys inloggen, voeg dan
