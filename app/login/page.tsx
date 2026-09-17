@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { huidigeSessie, devModusActief, DEV_COOKIE_NAAM } from "@/lib/auth";
 import { alsSysteem } from "@/lib/db";
@@ -20,43 +20,43 @@ async function kiesGebruiker(formData: FormData) {
   redirect("/uren");
 }
 
-/**
- * Stuurt een inloglink, maar alleen naar actieve medewerkers. De melding is
- * altijd dezelfde, zodat je hier niet kunt uitproberen wie er werkt.
- */
-async function stuurInloglink(formData: FormData) {
+async function inloggenMetWachtwoord(formData: FormData) {
   "use server";
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  if (!email) redirect("/login");
+  const wachtwoord = String(formData.get("wachtwoord") ?? "");
+  if (!email || !wachtwoord) redirect("/login?fout=wachtwoord");
 
-  const bekend = await alsSysteem(
-    (tx) => tx`select 1 from medewerker where actief and lower(email) = ${email} limit 1`,
+  const jar = await cookies();
+  const { url, key } = supabaseInstellingen();
+  const supabase = createServerClient(url, key, {
+    cookies: {
+      getAll: () => jar.getAll(),
+      setAll: (lijst) => lijst.forEach(({ name, value, options }) => jar.set(name, value, options)),
+    },
+  });
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password: wachtwoord });
+  // Eén melding voor een onbekend adres en een fout wachtwoord.
+  if (error || !data.user) redirect("/login?fout=wachtwoord");
+
+  // Account zonder actieve medewerker (bijvoorbeeld uit dienst): niet binnenlaten.
+  const medewerker = await alsSysteem(
+    (tx) => tx`
+      select 1 from medewerker
+      where actief
+        and (auth_user_id = ${data.user.id}
+             or (auth_user_id is null and lower(email) = ${email}))
+      limit 1
+    `,
   );
-  if (bekend[0]) {
-    const h = await headers();
-    const origin = `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host")}`;
-    const jar = await cookies();
-    const { url, key } = supabaseInstellingen();
-    const supabase = createServerClient(url, key, {
-      cookies: {
-        getAll: () => jar.getAll(),
-        setAll: (lijst) => lijst.forEach(({ name, value, options }) => jar.set(name, value, options)),
-      },
-    });
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: `${origin}/api/auth/callback` },
-    });
-    if (error) {
-      console.error("Inloglink versturen mislukt:", error);
-      redirect("/login?fout=mail");
-    }
+  if (!medewerker[0]) {
+    await supabase.auth.signOut();
+    redirect("/login?fout=onbekend");
   }
-  redirect("/login?verstuurd=1");
+  redirect("/uren");
 }
 
 const FOUTEN: Record<string, string> = {
-  mail: "De inloglink kon niet worden verstuurd. Probeer het over een paar minuten opnieuw.",
+  wachtwoord: "E-mailadres of wachtwoord klopt niet.",
   onbekend:
     "Je bent ingelogd, maar dit e-mailadres staat niet als medewerker in de tool. Vraag de eigenaar om je toe te voegen.",
   code: "Inloggen is niet afgerond. Probeer het opnieuw.",
@@ -68,9 +68,9 @@ const FOUTEN: Record<string, string> = {
 export default async function LoginPagina({
   searchParams,
 }: {
-  searchParams: Promise<{ fout?: string; verstuurd?: string }>;
+  searchParams: Promise<{ fout?: string }>;
 }) {
-  const { fout, verstuurd } = await searchParams;
+  const { fout } = await searchParams;
   if (await huidigeSessie()) redirect("/uren");
 
   const dev = devModusActief();
@@ -134,47 +134,32 @@ export default async function LoginPagina({
       ) : (
         <>
           <p className="mt-3 text-sm text-ink-2">
-            Log in met het account waarmee je ook je mail leest, of vraag een
-            inloglink aan.
+            Log in met je e-mailadres en wachtwoord, of met het account
+            waarmee je ook je mail leest.
           </p>
           {fout && (
             <p className="mt-4 rounded border border-warn bg-warn-bg p-4 text-sm">
               {FOUTEN[fout] ?? "Inloggen is mislukt."}
             </p>
           )}
-          <div className="mt-6 flex flex-col gap-3">
-            <a className="knop knop-primair" href="/api/auth/start?aanbieder=google">
+          <form action={inloggenMetWachtwoord} className="mt-6 flex flex-col gap-3">
+            <label className="flex flex-col gap-1">
+              <span className="label">E-mailadres</span>
+              <input name="email" type="email" required autoComplete="username" className="veld" />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="label">Wachtwoord</span>
+              <input name="wachtwoord" type="password" required autoComplete="current-password" className="veld" />
+            </label>
+            <button type="submit" className="knop knop-primair">Inloggen</button>
+          </form>
+          <div className="mt-6 flex flex-col gap-3 border-t border-line pt-6">
+            <a className="knop knop-stil" href="/api/auth/start?aanbieder=google">
               Doorgaan met Google
             </a>
             <a className="knop knop-stil" href="/api/auth/start?aanbieder=azure">
               Doorgaan met Microsoft
             </a>
-          </div>
-
-          <div className="mt-8 border-t border-line pt-6">
-            {verstuurd ? (
-              <p className="rounded border border-line bg-surface-2 p-4 text-sm">
-                Als dit adres bij ons bekend is, staat er nu een inloglink in je
-                mail.
-              </p>
-            ) : (
-              <form action={stuurInloglink} className="flex flex-col gap-3">
-                <label className="flex flex-col gap-1">
-                  <span className="label">E-mailadres</span>
-                  <input
-                    name="email"
-                    type="email"
-                    required
-                    autoComplete="email"
-                    className="veld"
-                    placeholder="naam@bedrijf.nl"
-                  />
-                </label>
-                <button type="submit" className="knop knop-stil">
-                  Stuur inloglink
-                </button>
-              </form>
-            )}
           </div>
         </>
       )}

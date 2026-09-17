@@ -3,11 +3,25 @@ import { notFound, redirect } from "next/navigation";
 import { vereisteSessie } from "@/lib/auth";
 import { medewerkers, functies, kostprijzenVan } from "@/lib/fase2";
 import { euro, korteDatum, vandaag } from "@/lib/datum";
-import { medewerkerBijwerken, kostprijsToevoegen } from "../../fase2-acties";
+import { medewerkerBijwerken, kostprijsToevoegen, wachtwoordInstellen } from "../../fase2-acties";
+import { MIN_WACHTWOORD } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
-export default async function MedewerkerPagina({ params }: { params: Promise<{ id: string }> }) {
+const WACHTWOORD_MELDING: Record<string, string> = {
+  ingesteld: "Wachtwoord ingesteld. Geef het op een veilige manier door.",
+  kort: `Een wachtwoord heeft minstens ${MIN_WACHTWOORD} tekens.`,
+  mislukt: "Wachtwoord instellen is mislukt. Staat SUPABASE_SERVICE_ROLE_KEY goed?",
+};
+
+export default async function MedewerkerPagina({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ wachtwoord?: string }>;
+}) {
+  const { wachtwoord } = await searchParams;
   const sessie = await vereisteSessie();
   if (sessie.rechten !== "eigenaar") redirect("/beheer");
   const { id } = await params;
@@ -47,6 +61,33 @@ export default async function MedewerkerPagina({ params }: { params: Promise<{ i
           <span className="text-xs text-muted">— uit dienst? Zet dit uit; de uren blijven bewaard.</span>
         </label>
         <button type="submit" className="knop knop-primair self-start">Opslaan</button>
+      </form>
+
+      <form action={wachtwoordInstellen} className="kaart mt-6 flex flex-col gap-3 p-4">
+        <input type="hidden" name="id" value={m.id} />
+        <h2 className="text-lg font-semibold">Wachtwoord</h2>
+        <p className="text-sm text-muted">
+          Hiermee logt {m.naam.split(" ")[0]} in met {m.email}. Een nieuw wachtwoord
+          vervangt het oude; inloggen met Google of Microsoft blijft ook werken.
+        </p>
+        {wachtwoord && WACHTWOORD_MELDING[wachtwoord] && (
+          <p className={`text-sm ${wachtwoord === "ingesteld" ? "text-accent-ink" : "text-warn"}`}>
+            {WACHTWOORD_MELDING[wachtwoord]}
+          </p>
+        )}
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <input
+            name="wachtwoord"
+            type="password"
+            required
+            minLength={MIN_WACHTWOORD}
+            autoComplete="new-password"
+            className="veld sm:flex-1"
+            aria-label="Nieuw wachtwoord"
+            placeholder={`Minstens ${MIN_WACHTWOORD} tekens`}
+          />
+          <button type="submit" className="knop knop-stil">Wachtwoord instellen</button>
+        </div>
       </form>
 
       <section className="mt-8">

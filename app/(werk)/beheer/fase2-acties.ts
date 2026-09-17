@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { vereisteSessie } from "@/lib/auth";
+import { stelWachtwoordIn } from "@/lib/supabase";
 import { isGeldigeDatum } from "@/lib/datum";
 import {
   beoordeelWeekstaat,
@@ -166,6 +167,22 @@ export async function medewerkerBijwerken(formData: FormData) {
   });
   revalidatePath("/beheer/medewerkers");
   revalidatePath(`/beheer/medewerkers/${id}`);
+}
+
+export async function wachtwoordInstellen(formData: FormData) {
+  await eigenaarSessie();
+  const id = String(formData.get("id") ?? "");
+  const wachtwoord = String(formData.get("wachtwoord") ?? "");
+  if (!id) return;
+  let melding = "ingesteld";
+  try {
+    await stelWachtwoordIn(id, wachtwoord);
+  } catch (fout) {
+    console.error("Wachtwoord instellen mislukt:", fout);
+    melding = fout instanceof Error && fout.message.startsWith("Een wachtwoord") ? "kort" : "mislukt";
+  }
+  revalidatePath("/beheer/medewerkers");
+  redirect(`/beheer/medewerkers/${id}?wachtwoord=${melding}`);
 }
 
 export async function kostprijsToevoegen(formData: FormData) {

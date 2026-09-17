@@ -18,7 +18,7 @@ half uur, het meeste daarvan is klikken door instellingen.
 3. Noteer bij *Project Settings → Database* de **connection string**. Gebruik
    de pooler-variant (poort 6543, "Transaction" mode) — Vercel draait
    serverless en opent anders te veel verbindingen.
-4. Noteer bij *Project Settings → API* de **Project URL** en de **anon key**.
+4. Noteer bij *Project Settings → API* de **Project URL**, de **anon key** en de **service_role key**.
 
 ## 2. Inloggen met Google of Microsoft (keuze A4)
 
@@ -30,13 +30,9 @@ Bij *Authentication → Providers*:
 - **Microsoft (Azure)**: registreer een app in Entra ID, zelfde redirect URL,
   plak application-id en secret in Supabase.
 
-- **Inloglink per mail**: staat standaard aan (*Email*). Zet bij
-  *Authentication → Emails → Magic Link* de link in het sjabloon op
-  `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email`, dan werkt de
-  link ook als je hem op een ander apparaat opent. Stel onder
-  *Project Settings → Authentication → SMTP* een eigen mailserver in (bijv.
-  Resend): de ingebouwde mail van Supabase stuurt alleen naar leden van je
-  Supabase-team en maar een paar berichten per uur.
+- **E-mail en wachtwoord**: staat standaard aan (*Email*). Zet *Allow new
+  users to sign up* uit; accounts maakt de eigenaar in de tool, onder
+  *Beheer → Medewerkers → (naam) → Wachtwoord*.
 
 Zet bij *Authentication → URL Configuration* de *Site URL* op je Vercel-adres
 zodra je dat hebt (stap 3), en voeg `https://<jouw-adres>/**` toe aan de
@@ -55,6 +51,7 @@ redirect-lijst. Wil je ook op preview-deploys inloggen, voeg dan
    | `AUTH_MODUS` | `supabase` |
    | `SUPABASE_URL` | Project URL uit stap 1 |
    | `SUPABASE_ANON_KEY` | anon key uit stap 1 |
+   | `SUPABASE_SERVICE_ROLE_KEY` | service_role key uit stap 1; nodig om wachtwoorden in te stellen |
    | `CRON_SECRET` | een lang willekeurig geheim; Vercel gebruikt het voor de dagelijkse abonnementsverwerking |
 
 3. Deploy. Je krijgt een adres als `declaratietool.vercel.app`; een eigen
